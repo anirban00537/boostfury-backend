@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+model User {
+  id                    Int                     @id @default(autoincrement())
+  email                 String                  @unique @db.VarChar(255)
+  password              String                  @db.VarChar(255)
+  first_name            String?
+  last_name             String?
+  user_name             String?                 @unique @db.VarChar(255)
+  unique_code           String?                 @unique @db.VarChar(255)
+  phone                 String?                 @db.VarChar(180)
+  photo                 String?                 @db.VarChar(500)
+  country               String?                 @db.VarChar(180)
+  birth_date            DateTime?
+  role                  Int                     @default(2) @db.SmallInt
+  status                Int                     @default(0) @db.SmallInt
+  is_subscribed         Int                     @default(0) @db.SmallInt
+  email_verified        Int                     @default(0) @db.SmallInt
+  phone_verified        Int                     @default(0) @db.SmallInt
+  gender                Int                     @default(1) @db.SmallInt
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  login_provider        String                  @db.VarChar(50)
+  LinkedInProfiles      LinkedInProfile[]
+  LinkedInPosts         LinkedInPost[]
+  Carousels             Carousel[]
+  UserTokens            UserTokens[]
+  UserVerificationCodes UserVerificationCodes[]
+  Subscription          Subscription?
+  UserBranding          UserBranding?
+  Files                 File[]
+  AIWordUsage           AIWordUsage?
+  Workspaces            Workspace[]
+
+  @@index([id])
+}
+
+model Workspace {
+  id            Int            @id @default(autoincrement())
+  name          String
+  description   String?
+  isDefault     Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  userId        Int
+  user          User           @relation(fields: [userId], references: [id])
+  linkedInPosts LinkedInPost[]
+  carousels     Carousel[]
+
+  @@index([id])
+  @@index([userId]) // Add this line to create an index on userId
+}
+
+model LinkedInProfile {
+  id                 Int            @id @default(autoincrement())
+  userId             Int
+  profileId          String         @unique
+  accessToken        String         @db.Text
+  name               String?
+  email              String?
+  avatarUrl          String?        @db.Text
+  clientId           String
+  creatorId          String
+  linkedInProfileUrl String?        @db.Text
+  tokenExpiringAt    DateTime
+  isDefault          Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  user               User           @relation(fields: [userId], references: [id])
+  LinkedInPost       LinkedInPost[]
+
+  @@index([userId])
+}
+
+model LinkedInPost {
+  id                  Int              @id @default(autoincrement())
+  content             String           @db.Text
+  visibility          String           @default("public")
+  postType            String           @default("text")
+  imageUrls           String[]         @default([])
+  videoUrl            String?
+  documentUrl         String?
+  hashtags            String[]         @default([])
+  scheduledTime       DateTime?
+  status              Int              @default(0) // 0: draft, 1: scheduled, 2: posted
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  publishedAt         DateTime?
+  publishedId         String?
+  linkedInApiResponse Json?
+  mentions            String[]         @default([])
+  fileUrl             String?
+  publishingError     String?
+  carouselTitle       String?
+  videoTitle          String?
+  publishingErrorCode String?
+  userId              Int
+  workspaceId         Int
+  linkedInProfileId   Int?
+  linkedInProfile     LinkedInProfile? @relation(fields: [linkedInProfileId], references: [id])
+  user                User             @relation(fields: [userId], references: [id])
+  workspace           Workspace        @relation(fields: [workspaceId], references: [id])
+  postLogs            PostLog[]
+
+  @@index([userId])
+  @@index([workspaceId])
+  @@index([linkedInProfileId])
+}
+
+model PostLog {
+  id             Int          @id @default(autoincrement())
+  linkedInPostId Int
+  status         String
+  message        String?
+  timestamp      DateTime     @default(now())
+  linkedInPost   LinkedInPost @relation(fields: [linkedInPostId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([linkedInPostId])
+}
+
+model UserTokens {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  refreshToken String   @db.VarChar(255)
+  family       String   @unique
+  browserInfo  String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Subscription {
+  id                         Int      @id @default(autoincrement())
+  userId                     Int      @unique
+  orderId                    String?  @unique // Make optional for trial
+  planId                     String? // Null for trial
+  endDate                    DateTime
+  isTrial                    Boolean  @default(false)
+  trialUsed                  Boolean  @default(false)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  productName                String?
+  variantName                String?
+  subscriptionLengthInMonths Int?
+  totalAmount                Float?
+  currency                   String?
+  user                       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Carousel {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  data        Json
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspaceId Int
+  user        User      @relation(fields: [userId], references: [id])
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([userId])
+  @@index([workspaceId])
+}
+
+model UserBranding {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  name      String
+  handle    String
+  headshot  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model File {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  name         String
+  originalName String
+  mimeType     String
+  size         Int
+  path         String
+  url          String?
+  isPublic     Boolean  @default(false)
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model UserVerificationCodes {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  code       String   @unique @db.VarChar(10)
+  status     Int      @default(0) @db.SmallInt
+  type       Int      @default(1) @db.SmallInt
+  expired_at DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+}
+
+model AIWordUsage {
+  id             Int            @id @default(autoincrement())
+  userId         Int            @unique
+  totalWordLimit Int            @default(0)
+  wordsGenerated Int            @default(0)
+  lastResetDate  DateTime       @default(now())
+  expirationTime DateTime
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  user           User           @relation(fields: [userId], references: [id])
+  wordTokenLogs  WordTokenLog[]
+
+  @@index([userId])
+}
+
+model WordTokenLog {
+  id            Int         @id @default(autoincrement())
+  aiWordUsageId Int
+  amount        Int // Can be positive (purchase/reset) or negative (usage)
+  type          String // "PURCHASE" | "USAGE" | "RESET" | "EXPIRY"
+  description   String?
+  createdAt     DateTime    @default(now())
+  aiWordUsage   AIWordUsage @relation(fields: [aiWordUsageId], references: [id])
+
+  @@index([aiWordUsageId])
+}
