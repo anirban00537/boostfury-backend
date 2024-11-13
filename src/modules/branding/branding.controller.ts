@@ -46,7 +46,6 @@ export class BrandingController {
   }
 
   @Get('get-branding')
-  @IsSubscribed()
   getBranding(@UserInfo() user: User) {
     return this.brandingService.getBranding(user.id);
   }

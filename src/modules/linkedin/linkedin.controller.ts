@@ -49,7 +49,6 @@ export class LinkedInController {
   }
 
   @Get('profiles')
-  @IsSubscribed()
   async getProfiles(@UserInfo() user: User) {
     return this.linkedInService.getUserLinkedInProfiles(user.id);
   }

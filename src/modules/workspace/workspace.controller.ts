@@ -11,7 +11,6 @@ export class WorkspaceController {
   constructor(private readonly workspaceService: WorkspaceService) {}
 
   @Get('get-my-workspaces')
-  @IsSubscribed()
   getMyWorkspaces(@UserInfo() user: User) {
     return this.workspaceService.getMyWorkspaces(user);
   }

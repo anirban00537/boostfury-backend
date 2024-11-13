@@ -37,7 +37,6 @@ export class FileController {
     return this.fileService.uploadImage(file, user);
   }
   @Get('files')
-  @IsSubscribed()
   async getFiles(
     @UserInfo() user: User,
     @Query('page') page: number,
@@ -47,7 +46,6 @@ export class FileController {
   }
 
   @Get('usages')
-  @IsSubscribed()
   async getImageUsage(@UserInfo() user: User): Promise<ResponseModel> {
     return this.fileService.getImageUsage(user.id);
   }
