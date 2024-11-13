@@ -75,7 +75,7 @@ export class LinkedInService {
 
       // Get access token
       const tokenData = await this.getAccessToken(code);
-      
+
       // Get user profile
       const profile = await this.getUserProfile(tokenData.access_token);
 
@@ -97,10 +97,10 @@ export class LinkedInService {
         // Check if it's connected to a different user
         if (existingProfile.userId !== userId) {
           return errorResponse(
-            `This LinkedIn profile is already connected to another account (${existingProfile.user.email}). Please disconnect it first before connecting to a new account.`
+            `This LinkedIn profile is already connected to another account (${existingProfile.user.email}). Please disconnect it first before connecting to a new account.`,
           );
         }
-        
+
         // If connected to same user, update the token
         const updatedProfile = await this.prisma.linkedInProfile.update({
           where: {
@@ -172,7 +172,7 @@ export class LinkedInService {
 
       const formData = new URLSearchParams();
       formData.append('grant_type', 'authorization_code');
-      formData.append('code', code.trim()); // Ensure no whitespace
+      formData.append('code', code.trim());
       formData.append('client_id', clientId);
       formData.append('client_secret', clientSecret);
       formData.append('redirect_uri', redirectUri);
@@ -469,24 +469,33 @@ export class LinkedInService {
       });
 
       if (await this.isTokenExpired(profileId)) {
-        throw new Error('LinkedIn token has expired. Please reconnect your account.');
+        throw new Error(
+          'LinkedIn token has expired. Please reconnect your account.',
+        );
       }
 
       const author = `urn:li:person:${profile.creatorId}`;
       let mediaAssets = [];
 
       // Enhanced image processing check
-      if (postData.imageUrls && Array.isArray(postData.imageUrls) && postData.imageUrls.length > 0) {
+      if (
+        postData.imageUrls &&
+        Array.isArray(postData.imageUrls) &&
+        postData.imageUrls.length > 0
+      ) {
         console.log('Processing images...');
         console.log('Number of images to process:', postData.imageUrls.length);
-        
+
         try {
           for (const [index, url] of postData.imageUrls.entries()) {
             console.log(`Processing image ${index + 1}:`, url);
-            
+
             // Register upload
             console.log('Registering image with LinkedIn...');
-            const registerResponse = await this.registerImageUpload(profile.accessToken, author);
+            const registerResponse = await this.registerImageUpload(
+              profile.accessToken,
+              author,
+            );
             console.log('Registration response:', registerResponse);
 
             // Upload image
@@ -542,7 +551,10 @@ export class LinkedInService {
         },
       };
 
-      console.log('Prepared post payload:', JSON.stringify(postPayload, null, 2));
+      console.log(
+        'Prepared post payload:',
+        JSON.stringify(postPayload, null, 2),
+      );
 
       // Make the API call to LinkedIn
       console.log('Making API call to LinkedIn...');
@@ -589,12 +601,18 @@ export class LinkedInService {
     const mediaAssets: LinkedInPostMedia[] = [];
 
     for (const [index, imageUrl] of imageUrls.entries()) {
-      console.log(`Processing image ${index + 1}/${imageUrls.length}:`, imageUrl);
+      console.log(
+        `Processing image ${index + 1}/${imageUrls.length}:`,
+        imageUrl,
+      );
 
       try {
         // Step 1: Register upload
         console.log('Registering image upload with LinkedIn...');
-        const registerResponse = await this.registerImageUpload(accessToken, owner);
+        const registerResponse = await this.registerImageUpload(
+          accessToken,
+          owner,
+        );
         console.log('Register response:', registerResponse);
 
         // Step 2: Upload image
@@ -608,7 +626,7 @@ export class LinkedInService {
 
         // Add to media assets with correct type
         const mediaAsset: LinkedInPostMedia = {
-          status: 'READY' as const,  // Using const assertion
+          status: 'READY' as const, // Using const assertion
           description: { text: '' },
           media: registerResponse.asset,
           title: { text: '' },
@@ -656,7 +674,10 @@ export class LinkedInService {
 
       console.log('Registration response:', response.data);
       return {
-        uploadUrl: response.data.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl,
+        uploadUrl:
+          response.data.value.uploadMechanism[
+            'com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'
+          ].uploadUrl,
         asset: response.data.value.asset,
       };
     } catch (error) {
@@ -677,23 +698,21 @@ export class LinkedInService {
     try {
       // Download image from URL
       console.log('Downloading image...');
-      const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+      const imageResponse = await axios.get(imageUrl, {
+        responseType: 'arraybuffer',
+      });
       const buffer = Buffer.from(imageResponse.data);
       console.log('Image downloaded, size:', buffer.length, 'bytes');
 
       // Upload to LinkedIn
       console.log('Uploading to LinkedIn...');
-      const uploadResponse = await axios.put(
-        uploadUrl,
-        buffer,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/octet-stream',
-            'Content-Length': buffer.length,
-          },
+      const uploadResponse = await axios.put(uploadUrl, buffer, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/octet-stream',
+          'Content-Length': buffer.length,
         },
-      );
+      });
       console.log('Upload response status:', uploadResponse.status);
     } catch (error) {
       console.error('Upload error:', error.response?.data || error);
