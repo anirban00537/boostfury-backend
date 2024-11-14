@@ -16,14 +16,14 @@ export class LinkedInService {
   private readonly logger = new Logger(LinkedInService.name);
   private readonly baseUrl = 'https://api.linkedin.com/v2';
   private readonly apiVersion = '202404';
-  private stateMap = new Map<string, number>();
+  private stateMap = new Map<string, string>();
 
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
   ) {}
 
-  async getAuthorizationUrl(userId: number): Promise<ResponseModel> {
+  async getAuthorizationUrl(userId: string): Promise<ResponseModel> {
     try {
       const clientId = this.configService.get<string>('LINKEDIN_CLIENT_ID');
       const redirectUri = this.configService.get<string>(
@@ -95,7 +95,7 @@ export class LinkedInService {
 
       if (existingProfile) {
         // Check if it's connected to a different user
-        if (existingProfile.userId !== userId) {
+        if (existingProfile.userId !== userId.toString()) {
           return errorResponse(
             `This LinkedIn profile is already connected to another account (${existingProfile.user.email}). Please disconnect it first before connecting to a new account.`,
           );
@@ -235,7 +235,7 @@ export class LinkedInService {
     }
   }
 
-  async getUserLinkedInProfiles(userId: number): Promise<ResponseModel> {
+  async getUserLinkedInProfiles(userId: string): Promise<ResponseModel> {
     try {
       const profiles = await this.prisma.linkedInProfile.findMany({
         where: {
@@ -315,8 +315,8 @@ export class LinkedInService {
     }
   }
   async disconnectLinkedInProfile(
-    userId: number,
-    id: number,
+    userId: string,
+    id: string,
   ): Promise<ResponseModel> {
     try {
       // First check if the profile exists and belongs to the user
@@ -361,8 +361,8 @@ export class LinkedInService {
   }
 
   async setDefaultProfile(
-    userId: number,
-    profileId: number,
+    userId: string,
+    profileId: string,
   ): Promise<ResponseModel> {
     try {
       const profile = await this.prisma.linkedInProfile.findFirst({

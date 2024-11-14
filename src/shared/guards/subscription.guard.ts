@@ -1,15 +1,16 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import { IS_SUBSCRIBED_KEY } from '../decorators/is-subscribed.decorator';
-import { SubscriptionService } from '../../modules/subscription/subscription.service';
+import { coreConstant } from '../helpers/coreConstant';
 
 @Injectable()
 export class SubscriptionGuard implements CanActivate {
+  private readonly logger = new Logger(SubscriptionGuard.name);
+
   constructor(
     private reflector: Reflector,
     private prisma: PrismaService,
-    private subscriptionService: SubscriptionService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -30,30 +31,60 @@ export class SubscriptionGuard implements CanActivate {
     }
 
     try {
-      const [isTrialActive, subscription] = await Promise.all([
-        this.subscriptionService.isTrialActive(user.id),
-        this.prisma.subscription.findUnique({
-          where: { userId: user.id },
-        }),
-      ]);
+      const subscription = await this.prisma.subscription.findUnique({
+        where: { userId: user.id },
+        include: { package: true },
+      });
 
-      if (isTrialActive) {
+      if (!subscription) {
+        throw new UnauthorizedException('No active subscription found');
+      }
+
+      const now = new Date();
+
+      // Check if subscription is active or trial
+      if (subscription.status === coreConstant.SUBSCRIPTION_STATUS.TRIAL) {
+        if (subscription.endDate <= now) {
+          throw new UnauthorizedException('Trial period has ended. Please subscribe to continue.');
+        }
         return true;
       }
 
-      const isSubscriptionActive = subscription?.endDate > new Date();
+      // Check regular subscription
+      if (subscription.status === coreConstant.SUBSCRIPTION_STATUS.ACTIVE) {
+        if (subscription.endDate <= now) {
+          // Update subscription status to expired
+          await this.prisma.subscription.update({
+            where: { id: subscription.id },
+            data: { status: coreConstant.SUBSCRIPTION_STATUS.EXPIRED }
+          });
+          throw new UnauthorizedException('Subscription has expired. Please renew to continue.');
+        }
 
-      if (!isSubscriptionActive) {
-        throw new UnauthorizedException(
-          'Trial period has ended. Please subscribe to continue.'
-        );
+        if (subscription.package.status !== 'active') {
+          throw new UnauthorizedException('Package is no longer available. Please contact support.');
+        }
+
+        return true;
       }
 
-      return true;
+      // Handle other subscription statuses
+      switch (subscription.status) {
+        case coreConstant.SUBSCRIPTION_STATUS.EXPIRED:
+          throw new UnauthorizedException('Subscription has expired. Please renew to continue.');
+        case coreConstant.SUBSCRIPTION_STATUS.CANCELLED:
+          throw new UnauthorizedException('Subscription has been cancelled. Please subscribe to continue.');
+        default:
+          throw new UnauthorizedException('Invalid subscription status');
+      }
+
     } catch (error) {
+      this.logger.error(`Subscription check failed for user ${user.id}:`, error);
+      
       if (error instanceof UnauthorizedException) {
         throw error;
       }
+      
       throw new UnauthorizedException('Error checking subscription status');
     }
   }

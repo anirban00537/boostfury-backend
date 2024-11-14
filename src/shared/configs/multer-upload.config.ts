@@ -57,7 +57,7 @@ export const multerUploadConfig: MulterOptions = {
 
 export const uploadFile = async (
   file: Express.Multer.File,
-  userId: number,
+  userId: string,
 ): Promise<string | null> => {
   if (!file || !file.buffer) {
     console.warn('No file or file buffer provided for upload');

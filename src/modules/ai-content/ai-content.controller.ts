@@ -25,7 +25,10 @@ export class AiContentController {
     @UserInfo() user: User,
     @Body() { topic }: { topic: string },
   ): Promise<ResponseModel> {
-    return this.aiContentService.generateLinkedInPostContentForCarousel(user.id, topic);
+    return this.aiContentService.generateLinkedInPostContentForCarousel(
+      user.id,
+      topic,
+    );
   }
 
   @Post('generate-linkedin-posts')
@@ -34,6 +37,6 @@ export class AiContentController {
     @UserInfo() user: User,
     @Body() dto: GenerateLinkedInPostsDto,
   ): Promise<ResponseModel> {
-    return this.aiContentService.generateLinkedInPosts(user.id, dto);
+    return this.aiContentService.generateLinkedInPosts(user.id.toString(), dto);
   }
 }

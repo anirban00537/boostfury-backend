@@ -43,7 +43,7 @@ export class ContentPostingService {
 
       // Add optional filters
       if (workspace_id) {
-        where.workspaceId = parseInt(workspace_id);
+        where.workspaceId = workspace_id;
       }
 
       // Define pagination options
@@ -117,7 +117,7 @@ export class ContentPostingService {
     }
   }
 
-  async getDraftPost(userId: number, postId: number): Promise<ResponseModel> {
+  async getDraftPost(userId: string, postId: string): Promise<ResponseModel> {
     try {
       const post = await this.prisma.linkedInPost.findFirst({
         where: {
@@ -158,7 +158,7 @@ export class ContentPostingService {
   }
 
   async createOrUpdateDraftPost(
-    userId: number,
+    userId: string,
     createOrUpdateDraftPostDto: CreateOrUpdateDraftPostDto,
   ): Promise<ResponseModel> {
     try {
@@ -236,7 +236,7 @@ export class ContentPostingService {
         carouselTitle: createOrUpdateDraftPostDto.carouselTitle,
         videoTitle: createOrUpdateDraftPostDto.videoTitle,
         status: coreConstant.POST_STATUS.DRAFT,
-        userId: userId,
+        userId,
         workspaceId: createOrUpdateDraftPostDto.workspaceId,
         linkedInProfileId: createOrUpdateDraftPostDto.linkedInProfileId,
       };
@@ -245,9 +245,7 @@ export class ContentPostingService {
       let logMessage;
       let logStatus;
 
-      // Check if we're updating an existing draft
       if (createOrUpdateDraftPostDto.id) {
-        // Verify the post exists and belongs to the user
         const existingPost = await this.prisma.linkedInPost.findFirst({
           where: {
             id: createOrUpdateDraftPostDto.id,
@@ -260,7 +258,6 @@ export class ContentPostingService {
           return errorResponse('Draft post not found');
         }
 
-        // Update existing draft
         draftPost = await this.prisma.linkedInPost.update({
           where: { id: createOrUpdateDraftPostDto.id },
           data: postData,
@@ -274,7 +271,6 @@ export class ContentPostingService {
         logMessage = 'Post draft updated successfully';
         logStatus = coreConstant.POST_LOG_STATUS.DRAFT_UPDATED;
       } else {
-        // Create new draft
         draftPost = await this.prisma.linkedInPost.create({
           data: postData,
           include: {
@@ -288,7 +284,6 @@ export class ContentPostingService {
         logStatus = coreConstant.POST_LOG_STATUS.DRAFT_CREATED;
       }
 
-      // Create post log
       await this.prisma.postLog.create({
         data: {
           linkedInPostId: draftPost.id,
@@ -307,7 +302,7 @@ export class ContentPostingService {
     }
   }
 
-  async postNow(userId: number, postId: number): Promise<ResponseModel> {
+  async postNow(userId: string, postId: string): Promise<ResponseModel> {
     try {
       const post = await this.prisma.linkedInPost.findUnique({
         where: {
@@ -467,8 +462,8 @@ export class ContentPostingService {
   }
 
   async schedulePost(
-    userId: number,
-    postId: number,
+    userId: string,
+    postId: string,
     scheduledTime: string,
     timeZone: string,
   ): Promise<ResponseModel> {

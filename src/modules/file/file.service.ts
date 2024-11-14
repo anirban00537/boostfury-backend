@@ -113,7 +113,7 @@ export class FileService {
     }
   }
 
-  async getFile(id: number): Promise<ResponseModel> {
+  async getFile(id: string): Promise<ResponseModel> {
     try {
       const file = await this.prisma.file.findUnique({
         where: { id },
@@ -130,7 +130,7 @@ export class FileService {
     }
   }
 
-  async deleteFile(id: number, user: User): Promise<ResponseModel> {
+  async deleteFile(id: string, user: User): Promise<ResponseModel> {
     try {
       const file = await this.prisma.file.findUnique({
         where: { id, userId: user.id },
@@ -162,7 +162,7 @@ export class FileService {
     }
   }
 
-  async getImageUsage(userId: number): Promise<ResponseModel> {
+  async getImageUsage(userId: string): Promise<ResponseModel> {
     console.log('calling usage');
     try {
       const totalCount = await this.prisma.file.count({
@@ -195,14 +195,6 @@ export class FileService {
     file: Express.Multer.File,
     user: User,
   ): Promise<string> {
-    // Check subscription
-    const isSubscribed = await this.subscriptionService.checkSubscription(user);
-    if (!isSubscribed.isSubscribed) {
-      throw new Error(
-        'User is not subscribed, please subscribe to upload files',
-      );
-    }
-
     // Check storage limit
     const imageUsage: any = await this.getImageUsage(user.id);
     if (imageUsage.data.totalSize >= coreConstant.MAX_IMAGE_SIZE) {

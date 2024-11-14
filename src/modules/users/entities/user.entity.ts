@@ -6,7 +6,7 @@ export class User implements Prisma.UserUncheckedCreateInput {
    * User ID as UUID
    * @example 1
    */
-  id?: number;
+  id?: string;
 
   /**
    * User email

@@ -99,7 +99,7 @@ export class AuthService {
   async login(
     payload: LoginCredentialsDto,
     browserInfo?: string,
-  ): Promise<any> {
+  ): Promise<ResponseModel> {
     try {
       const user = await this.validateUser(payload.email, payload.password);
       if (user.email_verified !== coreConstant.IS_VERIFIED) {
@@ -110,34 +110,37 @@ export class AuthService {
       const data = { sub: user.id, email: user.email };
 
       const accessToken = await this.generateAccessToken(data);
-
       const refreshToken = await this.createRefreshToken(
         { sub: data.sub, email: data.email },
         browserInfo,
       );
 
-      const userData = {
-        accessToken: accessToken,
-        refreshToken: refreshToken,
-        user: user,
-        isAdmin: false,
-      };
-      if (user.role === coreConstant.USER_ROLE_ADMIN) {
-        userData.isAdmin = true;
-      }
-
-      // Check and create trial if needed
+      // Check for existing subscription
       const subscription = await this.prisma.subscription.findUnique({
         where: { userId: user.id },
       });
 
-      if (!subscription && !subscription?.trialUsed) {
+      // Create trial if no subscription exists
+      if (!subscription) {
         await this.subscriptionService.createTrialSubscription(user.id);
       }
 
+      const userData = {
+        accessToken,
+        refreshToken,
+        user,
+        isAdmin: user.role === coreConstant.USER_ROLE_ADMIN,
+        subscription: await this.prisma.subscription.findUnique({
+          where: { userId: user.id },
+          include: {
+            package: true,
+          },
+        }),
+      };
+
       return successResponse('Login successful', userData);
     } catch (err) {
-      return errorResponse('Invalid email or password', []);
+      return errorResponse('Invalid email or password');
     }
   }
 
@@ -181,7 +184,7 @@ export class AuthService {
     }
   }
 
-  async logoutAll(userId: number) {
+  async logoutAll(userId: string) {
     try {
       await this.prisma.userTokens.deleteMany({ where: { userId } });
       return successResponse('Logout successful', []);
@@ -191,7 +194,7 @@ export class AuthService {
     }
   }
 
-  async findAllTokens(userId: number): Promise<UserTokens[]> {
+  async findAllTokens(userId: string): Promise<UserTokens[]> {
     const tokens = await this.prisma.userTokens.findMany({
       where: { userId },
     });
@@ -213,7 +216,7 @@ export class AuthService {
   }
 
   private async generateAccessToken(payload: {
-    sub: number;
+    sub: string;
     email: string;
   }): Promise<string> {
     const accessToken = await this.jwtService.sign(payload, accessJwtConfig);
@@ -221,35 +224,40 @@ export class AuthService {
     return accessToken;
   }
 
+  private async generateRefreshToken(payload: {
+    sub: string;
+    email: string;
+    tokenFamily?: string;
+  }): Promise<string> {
+    if (!payload.tokenFamily) {
+      payload.tokenFamily = uuidV4().substring(0, 255);
+    }
+
+    return this.jwtService.sign(payload, refreshJwtConfig);
+  }
+
   private async createRefreshToken(
     payload: {
-      sub: number;
+      sub: string;
       email: string;
       tokenFamily?: string;
     },
     browserInfo?: string,
   ): Promise<string> {
-    if (!payload.tokenFamily) {
-      payload.tokenFamily = uuidV4();
-    }
-
-    const refreshToken = await this.jwtService.sign(
-      { ...payload },
-      refreshJwtConfig,
-    );
+    const refreshToken = await this.generateRefreshToken(payload);
 
     await this.saveRefreshToken({
       userId: payload.sub,
       refreshToken,
-      family: payload.tokenFamily,
-      browserInfo,
+      family: payload.tokenFamily || uuidV4().substring(0, 255),
+      browserInfo: browserInfo?.substring(0, 255),
     });
 
     return refreshToken;
   }
 
   private async saveRefreshToken(refreshTokenCredentials: {
-    userId: number;
+    userId: string;
     refreshToken: string;
     family: string;
     browserInfo?: string;
@@ -260,15 +268,19 @@ export class AuthService {
       throw new Error('User ID is required to save refresh token');
     }
 
-    await this.prisma.userTokens.create({
-      data: {
-        userId: refreshTokenCredentials.userId,
-        refreshToken: refreshTokenCredentials.refreshToken,
-        family: refreshTokenCredentials.family,
-        browserInfo: refreshTokenCredentials.browserInfo,
-        expiresAt,
-      },
-    });
+    try {
+      await this.prisma.userTokens.create({
+        data: {
+          userId: refreshTokenCredentials.userId,
+          refreshToken: refreshTokenCredentials.refreshToken,
+          family: refreshTokenCredentials.family.substring(0, 255),
+          browserInfo: refreshTokenCredentials.browserInfo?.substring(0, 255),
+          expiresAt,
+        },
+      });
+    } catch (error) {
+      throw new Error('Failed to save refresh token');
+    }
   }
 
   private async validateRefreshToken(
@@ -294,7 +306,7 @@ export class AuthService {
   }
 
   private async removeRefreshTokenFamilyIfCompromised(
-    userId: number,
+    userId: string,
     tokenFamily: string,
   ): Promise<void> {
     const familyTokens = await this.prisma.userTokens.findMany({

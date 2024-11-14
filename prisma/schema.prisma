@@ -9,7 +9,7 @@ datasource db {
 }
 
 model User {
-  id                    Int                     @id @default(autoincrement())
+  id                    String                  @id @default(cuid())
   email                 String                  @unique @db.VarChar(255)
   password              String                  @db.VarChar(255)
   first_name            String?
@@ -37,31 +37,29 @@ model User {
   Subscription          Subscription?
   UserBranding          UserBranding?
   Files                 File[]
-  AIWordUsage           AIWordUsage?
   Workspaces            Workspace[]
 
   @@index([id])
 }
 
 model Workspace {
-  id            Int            @id @default(autoincrement())
+  id            String         @id @default(cuid())
   name          String
   description   String?
   isDefault     Boolean        @default(false)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  userId        Int
+  userId        String
   user          User           @relation(fields: [userId], references: [id])
   linkedInPosts LinkedInPost[]
   carousels     Carousel[]
 
-  @@index([id])
-  @@index([userId]) // Add this line to create an index on userId
+  @@index([userId])
 }
 
 model LinkedInProfile {
-  id                 Int            @id @default(autoincrement())
-  userId             Int
+  id                 String         @id @default(cuid())
+  userId             String
   profileId          String         @unique
   accessToken        String         @db.Text
   name               String?
@@ -81,7 +79,7 @@ model LinkedInProfile {
 }
 
 model LinkedInPost {
-  id                  Int              @id @default(autoincrement())
+  id                  String           @id @default(cuid())
   content             String           @db.Text
   visibility          String           @default("public")
   postType            String           @default("text")
@@ -102,9 +100,9 @@ model LinkedInPost {
   carouselTitle       String?
   videoTitle          String?
   publishingErrorCode String?
-  userId              Int
-  workspaceId         Int
-  linkedInProfileId   Int?
+  userId              String
+  workspaceId         String
+  linkedInProfileId   String?
   linkedInProfile     LinkedInProfile? @relation(fields: [linkedInProfileId], references: [id])
   user                User             @relation(fields: [userId], references: [id])
   workspace           Workspace        @relation(fields: [workspaceId], references: [id])
@@ -116,8 +114,8 @@ model LinkedInPost {
 }
 
 model PostLog {
-  id             Int          @id @default(autoincrement())
-  linkedInPostId Int
+  id             String       @id @default(cuid())
+  linkedInPostId String
   status         String
   message        String?
   timestamp      DateTime     @default(now())
@@ -129,46 +127,164 @@ model PostLog {
 }
 
 model UserTokens {
-  id           Int      @id @default(autoincrement())
-  userId       Int
-  refreshToken String   @db.VarChar(255)
-  family       String   @unique
-  browserInfo  String?
+  id           String   @id @default(uuid())
+  userId       String
+  refreshToken String   @db.Text
+  family       String   @db.VarChar(255)
+  browserInfo  String?  @db.VarChar(255)
   expiresAt    DateTime
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([refreshToken])
+}
+
+model Package {
+  id String @id @default(cuid())
+
+  // Basic Package Info
+  name        String // e.g., "Pro Plan", "Business Plan"
+  description String
+  type        String // "monthly" | "yearly" | "lifetime"
+  status      String @default("active") // "active" | "inactive" | "deprecated"
+
+  // Pricing
+  price    Float
+  currency String @default("USD")
+
+  // Lemon Squeezy Integration
+  variantId String @unique // Lemon Squeezy variant ID
+  productId String // Lemon Squeezy product ID
+
+  // Word Generation Limits
+  monthlyWordLimit Int // Monthly word generation limit
+
+  // LinkedIn Limits
+  linkedInAccountLimit Int @default(1) // Number of LinkedIn accounts allowed
+  linkedInPostLimit    Int @default(30) // Monthly LinkedIn posts allowed
+  linkedInImageLimit   Int @default(4) // Images per post
+  linkedInVideoLimit   Int @default(1) // Videos per post
+
+  // Carousel Limits
+  carouselLimit      Int @default(10) // Monthly carousel generations
+  carouselSlideLimit Int @default(8) // Slides per carousel
+
+  // AI Features
+  hasHashtagSuggestions Boolean @default(false)
+  aiWriting             Boolean @default(false)
+  hasScheduling         Boolean @default(false)
+
+  // Future Features (JSON for very new or experimental features)
+  additionalFeatures Json? // For beta/new features before making them columns
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  subscriptions Subscription[]
+
+  @@index([status])
+  @@index([type])
 }
 
 model Subscription {
-  id                         Int      @id @default(autoincrement())
-  userId                     Int      @unique
-  orderId                    String?  @unique // Make optional for trial
-  planId                     String? // Null for trial
-  endDate                    DateTime
-  isTrial                    Boolean  @default(false)
-  trialUsed                  Boolean  @default(false)
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
-  productName                String?
-  variantName                String?
-  subscriptionLengthInMonths Int?
-  totalAmount                Float?
-  currency                   String?
-  user                       User     @relation(fields: [userId], references: [id])
+  id String @id @default(cuid())
 
+  // User Relationship
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  // Package Relationship
+  packageId String? // null for custom/trial subscriptions
+  package   Package? @relation(fields: [packageId], references: [id])
+
+  // Subscription Status
+  status  String  @default("active") // "active" | "cancelled" | "expired" | "trial"
+  orderId String? @unique // Lemon Squeezy order ID
+
+  // Trial Information
+  isTrial   Boolean @default(false)
+  trialUsed Boolean @default(false)
+
+  // Subscription Dates
+  startDate   DateTime  @default(now())
+  endDate     DateTime
+  cancelledAt DateTime?
+
+  // Word Usage Tracking
+  monthlyWordLimit    Int      @default(0) // Current period word limit
+  wordsGenerated      Int      @default(0) // Words used in current period
+  wordsAllowedInTrial Int? // Only for trial subscriptions
+  lastWordResetDate   DateTime @default(now())
+  nextWordResetDate   DateTime // For monthly reset planning
+
+  // LinkedIn Usage Tracking
+  linkedInAccountLimit Int      @default(1)
+  linkedInAccountsUsed Int      @default(0)
+  linkedInPostLimit    Int      @default(30)
+  linkedInPostsUsed    Int      @default(0)
+  lastPostResetDate    DateTime @default(now())
+  nextPostResetDate    DateTime
+
+  // Carousel Usage Tracking
+  carouselLimit         Int      @default(10)
+  carouselsGenerated    Int      @default(0)
+  lastCarouselResetDate DateTime @default(now())
+  nextCarouselResetDate DateTime
+
+  // Feature Access (inherited from package but can be overridden)
+  aiWriting     Boolean @default(false)
+  hasScheduling Boolean @default(false)
+
+  // Billing Information
+  billingCycle String? // "monthly" | "yearly" | "lifetime"
+  renewalPrice Float? // Price for next renewal
+  currency     String  @default("USD")
+
+  // Custom Overrides
+  customFeatures Json? // For special cases or temporary feature grants
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  wordTokenLogs WordTokenLog[]
+
+  // Indexes
   @@index([userId])
+  @@index([packageId])
+  @@index([status])
+  @@index([endDate])
+  @@index([isTrial])
+}
+
+model WordTokenLog {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  amount         Int
+  type           String // "PURCHASE" | "USAGE" | "RESET" | "EXPIRY"
+  source         String // "subscription" | "trial" | "bonus" | "admin"
+  description    String?
+  metadata       Json?
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@index([subscriptionId])
+  @@index([type])
+  @@index([createdAt])
 }
 
 model Carousel {
-  id          Int       @id @default(autoincrement())
-  userId      Int
+  id          String    @id @default(cuid())
+  userId      String
   data        Json
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  workspaceId Int
+  workspaceId String
   user        User      @relation(fields: [userId], references: [id])
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
 
@@ -177,8 +293,8 @@ model Carousel {
 }
 
 model UserBranding {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @unique
+  id        String   @id @default(cuid())
+  userId    String   @unique
   name      String
   handle    String
   headshot  String?
@@ -190,8 +306,8 @@ model UserBranding {
 }
 
 model File {
-  id           Int      @id @default(autoincrement())
-  userId       Int
+  id           String   @id @default(cuid())
+  userId       String
   name         String
   originalName String
   mimeType     String
@@ -208,42 +324,15 @@ model File {
 }
 
 model UserVerificationCodes {
-  id         Int      @id @default(autoincrement())
-  user_id    Int
+  id         String   @id @default(cuid())
+  userId     String
   code       String   @unique @db.VarChar(10)
   status     Int      @default(0) @db.SmallInt
   type       Int      @default(1) @db.SmallInt
   expired_at DateTime
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@index([user_id])
-}
-
-model AIWordUsage {
-  id             Int            @id @default(autoincrement())
-  userId         Int            @unique
-  totalWordLimit Int            @default(0)
-  wordsGenerated Int            @default(0)
-  lastResetDate  DateTime       @default(now())
-  expirationTime DateTime
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  user           User           @relation(fields: [userId], references: [id])
-  wordTokenLogs  WordTokenLog[]
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-}
-
-model WordTokenLog {
-  id            Int         @id @default(autoincrement())
-  aiWordUsageId Int
-  amount        Int // Can be positive (purchase/reset) or negative (usage)
-  type          String // "PURCHASE" | "USAGE" | "RESET" | "EXPIRY"
-  description   String?
-  createdAt     DateTime    @default(now())
-  aiWordUsage   AIWordUsage @relation(fields: [aiWordUsageId], references: [id])
-
-  @@index([aiWordUsageId])
 }

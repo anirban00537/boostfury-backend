@@ -3,7 +3,7 @@ export type RefreshTokenPayload = {
   /** Token subject, user ID used
    * @example 1
    */
-  sub: number;
+  sub: string;
   email: string;
 
   /** Token family for refresh token rotation

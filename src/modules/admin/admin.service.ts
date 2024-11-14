@@ -10,6 +10,7 @@ import {
   paginatedQuery,
   PaginationOptions,
 } from 'src/shared/utils/pagination.util';
+import { coreConstant } from 'src/shared/helpers/coreConstant';
 
 @Injectable()
 export class AdminService {
@@ -26,6 +27,7 @@ export class AdminService {
         carouselCreationOverview,
         userSubscriptions,
         userDetails,
+        subscriptionStats,
       ] = await Promise.all([
         this.getTotalCarousels(),
         this.getActiveSubscriptions(),
@@ -35,6 +37,7 @@ export class AdminService {
         this.getCarouselCreationOverview(),
         this.getUserSubscriptions(),
         this.getUserDetails(),
+        this.getSubscriptionStats(),
       ]);
 
       return successResponse('Retrieved dashboard data', {
@@ -46,6 +49,7 @@ export class AdminService {
         carouselCreationOverview,
         userSubscriptions,
         userDetails,
+        subscriptionStats,
       });
     } catch (error) {
       return errorResponse(error.message);
@@ -60,7 +64,8 @@ export class AdminService {
         {},
         options,
         {
-          user: { // Directly specify the relation here
+          user: {
+            // Directly specify the relation here
             select: {
               id: true,
               email: true,
@@ -68,7 +73,7 @@ export class AdminService {
               last_name: true,
             },
           },
-        }
+        },
       );
       return successResponse('Retrieved carousels', carousels);
     } catch (error) {
@@ -92,10 +97,29 @@ export class AdminService {
         'subscription',
         {},
         options,
+        {
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                first_name: true,
+                last_name: true,
+              }
+            },
+            package: {
+              select: {
+                name: true,
+                price: true,
+                currency: true,
+              }
+            }
+          }
+        }
       );
       return successResponse('Retrieved subscriptions', subscriptions);
     } catch (error) {
-      processException(error);
+      return errorResponse(error.message);
     }
   }
 
@@ -109,6 +133,7 @@ export class AdminService {
         endDate: {
           gte: new Date(),
         },
+        status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
       },
     });
   }
@@ -185,15 +210,39 @@ export class AdminService {
   private async getUserSubscriptions() {
     return this.prisma.subscription.findMany({
       select: {
-        productName: true,
-        totalAmount: true,
-        subscriptionLengthInMonths: true,
-        currency: true,
+        package: {
+          select: {
+            name: true,
+            price: true,
+            currency: true,
+          },
+        },
+        monthlyWordLimit: true,
+        wordsGenerated: true,
+        linkedInPostsUsed: true,
+        carouselsGenerated: true,
+        status: true,
+        endDate: true,
+        user: {
+          select: {
+            email: true,
+            first_name: true,
+            last_name: true,
+          },
+        },
+      },
+      where: {
+        status: {
+          in: [
+            coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
+            coreConstant.SUBSCRIPTION_STATUS.TRIAL,
+          ],
+        },
       },
       orderBy: {
         createdAt: 'desc',
       },
-      take: 10, // Limit to 10 most recent subscriptions, adjust as needed
+      take: 10,
     });
   }
 
@@ -203,11 +252,55 @@ export class AdminService {
         email: true,
         role: true,
         status: true,
-        is_subscribed: true,
         email_verified: true,
         phone_verified: true,
+        Subscription: {
+          select: {
+            status: true,
+            endDate: true,
+            package: {
+              select: {
+                name: true,
+              }
+            }
+          }
+        }
       },
-      take: 10, // Limit to 10 users, adjust as needed
+      where: {
+        email_verified: 1,
+      },
+      take: 10,
     });
+  }
+
+  private async getSubscriptionStats() {
+    const now = new Date();
+    return {
+      active: await this.prisma.subscription.count({
+        where: {
+          status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
+          endDate: { gte: now },
+        },
+      }),
+      trial: await this.prisma.subscription.count({
+        where: {
+          status: coreConstant.SUBSCRIPTION_STATUS.TRIAL,
+          endDate: { gte: now },
+        },
+      }),
+      expired: await this.prisma.subscription.count({
+        where: {
+          OR: [
+            { status: coreConstant.SUBSCRIPTION_STATUS.EXPIRED },
+            { endDate: { lt: now } },
+          ],
+        },
+      }),
+      cancelled: await this.prisma.subscription.count({
+        where: {
+          status: coreConstant.SUBSCRIPTION_STATUS.CANCELLED,
+        },
+      }),
+    };
   }
 }

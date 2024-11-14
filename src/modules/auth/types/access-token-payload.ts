@@ -3,7 +3,7 @@ export type AccessTokenPayload = {
   /** Token subject, user ID used
    * @example 1
    */
-  sub: number;
+  sub: string;
 
   /** User email
    * @example "email"

@@ -103,15 +103,11 @@ export class UsersService {
 
       if (result.user && result.workspace) {
         // Start trial subscription
-        const trialResult = await this.subscriptionService.createTrialSubscription(
-          result.user.id
-        );
-
-        if (!trialResult.success) {
-          console.error(
-            `Failed to create trial subscription: ${trialResult.error}`
+        const trialResult =
+          await this.subscriptionService.createTrialSubscription(
+            result.user.id,
           );
-        }
+        console.log(trialResult, 'logissssssssssssssssssssssssssssn');
 
         return successResponse(
           'New user created successfully with trial subscription',
@@ -132,7 +128,7 @@ export class UsersService {
   }
 
   // get user by id
-  async findById(id: number): Promise<User> {
+  async findById(id: string): Promise<User> {
     return this.prisma.user.findUnique({ where: { id: id } });
   }
 
@@ -257,13 +253,13 @@ export class UsersService {
     }
   }
 
-  async changeStatus(payload: { user_id: number }) {
+  async changeStatus(payload: { user_id: string }) {
     try {
       if (!payload.user_id) {
         return errorResponse('User Id field is required!');
       }
 
-      const user_id = Number(payload.user_id);
+      const user_id = payload.user_id;
       const userDetails = await this.prisma.user.findFirst({
         where: {
           id: user_id,
@@ -277,7 +273,7 @@ export class UsersService {
 
         const updateUserDetails = await this.prisma.user.update({
           where: {
-            id: Number(payload.user_id),
+            id: payload.user_id,
           },
           data: {
             status: status,
@@ -311,13 +307,13 @@ export class UsersService {
     }
   }
 
-  async userProfileDetails(payload: { user_id: number }) {
+  async userProfileDetails(payload: { user_id: string }) {
     try {
       if (!payload.user_id) {
         return errorResponse('User Id field is required!');
       }
 
-      const user_id = Number(payload.user_id);
+      const user_id = payload.user_id;
       const userDetails = await this.prisma.user.findFirst({
         where: {
           id: user_id,

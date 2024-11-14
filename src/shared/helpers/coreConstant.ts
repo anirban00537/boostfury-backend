@@ -9,8 +9,6 @@ export const coreConstant = {
   IS_NOT_VERIFIED: 0,
   VERIFICATION_TYPE_EMAIL: 1,
   FILE_DESTINATION: 'public/uploads',
-  SUBSCRIPTION_STATUS_ACTIVE: 'active',
-  SUBSCRIPTION_STATUS_EXPIRED: 'expired',
   MAX_IMAGE_SIZE: 500 * 1024 * 1024, // 500MB
 
   // Post Types
@@ -20,6 +18,19 @@ export const coreConstant = {
     VIDEO: 'video',
     DOCUMENT: 'document',
     CAROUSEL: 'carousel',
+  },
+  SUBSCRIPTION_STATUS: {
+    ACTIVE: 'active',
+    EXPIRED: 'expired',
+    TRIAL: 'trial',
+    CANCELLED: 'cancelled',
+  },
+  WORD_TOKEN_LOG_TYPE: {
+    USAGE: 'USAGE',
+    RESET: 'RESET',
+  },
+  PACKAGE_TYPE: {
+    TRIAL: 'trial',
   },
 
   // Post Status
@@ -56,21 +67,26 @@ export const coreConstant = {
     MAX_IMAGE_SIZE: 5 * 1024 * 1024, // 5MB
     MIN_IMAGE_DIMENSIONS: {
       WIDTH: 552,
-      HEIGHT: 276
+      HEIGHT: 276,
     },
     MAX_IMAGE_DIMENSIONS: {
       WIDTH: 2048,
-      HEIGHT: 2048
+      HEIGHT: 2048,
     },
     ASPECT_RATIO: {
-      MIN: 1/1.91,  // 1:1.91
-      MAX: 1/1      // 1:1
+      MIN: 1 / 1.91, // 1:1.91
+      MAX: 1 / 1, // 1:1
     },
     MEDIA_CATEGORIES: {
       NONE: 'NONE',
       IMAGE: 'IMAGE',
       VIDEO: 'VIDEO',
-      DOCUMENT: 'DOCUMENT'
-    }
+      DOCUMENT: 'DOCUMENT',
+    },
+  },
+
+  VERIFICATION: {
+    VERIFIED: 1,
+    NOT_VERIFIED: 0,
   },
 };

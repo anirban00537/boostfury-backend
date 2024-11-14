@@ -1,25 +1,11 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import { User } from '@prisma/client';
-import {
-  PRICING_PLANS,
-  PlanId,
-  getVariantId,
-  getPlanByVariantId,
-  getPlanById,
-} from 'src/shared/constants/pricing';
-import { successResponse, errorResponse } from 'src/shared/helpers/functions';
+import { User, Package, Subscription } from '@prisma/client';
 import { ResponseModel } from 'src/shared/models/response.model';
+import { successResponse, errorResponse } from 'src/shared/helpers/functions';
 import axios from 'axios';
-import { WordLimitUpdate } from './types/subscription';
-import {
-  SUBSCRIPTION_CONFIG,
-  generateTrialOrderId,
-  getTrialEndDate,
-  getTrialSubscriptionData,
-  isTrialExpired,
-} from 'src/shared/constants/subscription.config';
+import { coreConstant } from 'src/shared/helpers/coreConstant';
 
 @Injectable()
 export class SubscriptionService {
@@ -33,145 +19,84 @@ export class SubscriptionService {
   ) {
     this.apiKey = this.configService.get<string>('LEMONSQUEEZY_API_KEY');
     this.storeId = this.configService.get<string>('LEMONSQUEEZY_STORE_ID');
-
-    if (!this.apiKey) {
-      this.logger.error('LEMONSQUEEZY_API_KEY is not configured');
-    }
-    if (!this.storeId) {
-      this.logger.error('LEMONSQUEEZY_STORE_ID is not configured');
-    }
   }
 
-  async checkSubscription(user: User) {
+  async checkSubscriptionResponse(user: User): Promise<ResponseModel> {
     try {
       const subscription = await this.prisma.subscription.findUnique({
         where: { userId: user.id },
+        include: { package: true },
       });
 
-      const wordUsage = await this.prisma.aIWordUsage.findUnique({
-        where: { userId: user.id },
-        select: {
-          totalWordLimit: true,
-          wordsGenerated: true,
-          expirationTime: true,
+      const now = new Date();
+      const isActive = subscription?.endDate > now;
+
+      // Get usage data for different features
+      const usageData = {
+        words: {
+          used: subscription?.wordsGenerated || 0,
+          limit: subscription?.monthlyWordLimit || 0,
+          nextReset: subscription?.nextWordResetDate,
         },
-      });
-
-      const now = new Date();
-      const isSubscriptionActive = subscription?.endDate > now;
-
-      const tokenData = wordUsage
-        ? {
-            totalTokens: wordUsage.totalWordLimit,
-            usedTokens: wordUsage.wordsGenerated,
-            remainingTokens:
-              wordUsage.totalWordLimit - wordUsage.wordsGenerated,
-            tokenExpirationDate: wordUsage.expirationTime,
-            isTokenActive: wordUsage.expirationTime > now,
-          }
-        : {
-            totalTokens: 0,
-            usedTokens: 0,
-            remainingTokens: 0,
-            tokenExpirationDate: null,
-            isTokenActive: false,
-          };
-
-      return {
-        isSubscribed: isSubscriptionActive,
-        plan: isSubscriptionActive ? subscription.planId : null,
-        expiresAt: subscription?.endDate || null,
-        subscription: subscription
-          ? {
-              productName: subscription.productName,
-              variantName: subscription.variantName,
-            }
-          : null,
-        tokens: tokenData,
+        linkedin: {
+          accountsUsed: subscription?.linkedInAccountsUsed || 0,
+          accountsLimit: subscription?.linkedInAccountLimit || 0,
+          postsUsed: subscription?.linkedInPostsUsed || 0,
+          postsLimit: subscription?.linkedInPostLimit || 0,
+          nextReset: subscription?.nextPostResetDate,
+        },
+        carousels: {
+          used: subscription?.carouselsGenerated || 0,
+          limit: subscription?.carouselLimit || 0,
+          nextReset: subscription?.nextCarouselResetDate,
+        },
       };
-    } catch (error) {
-      this.logger.error('Error checking subscription:', error);
-      throw error;
-    }
-  }
 
-  async checkSubscriptionResponse(user: User) {
-    try {
-      const subscriptionStatus = await this.checkSubscription(user);
-      const subscription = await this.prisma.subscription.findUnique({
-        where: { userId: user.id },
-      });
-
-      const plan_id = subscriptionStatus.plan;
-      const plan = PRICING_PLANS.find((p) => p.id === plan_id);
-      const limits = plan?.limits;
-      const userWordUsage = await this.getWordUsageData(user.id);
-
-      const now = new Date();
-      const trialInfo = subscription?.isTrial
-        ? {
-            isTrial: true,
-            trialEndDate: subscription.endDate,
-            daysRemaining: Math.max(
-              0,
-              Math.ceil(
-                (subscription.endDate.getTime() - now.getTime()) /
-                  (1000 * 60 * 60 * 24),
-              ),
-            ),
-            hoursRemaining: Math.max(
-              0,
-              Math.ceil(
-                (subscription.endDate.getTime() - now.getTime()) /
-                  (1000 * 60 * 60),
-              ),
-            ),
-            isExpired: subscription.endDate <= now,
-          }
-        : {
-            isTrial: false,
-            trialUsed: subscription?.trialUsed || false,
-          };
-
-      return successResponse('Subscription checked successfully', {
-        ...subscriptionStatus,
-        limits,
-        userWordUsage,
-        trial: trialInfo,
+      return successResponse('Subscription status retrieved', {
+        isActive,
         subscription: subscription
           ? {
-              endDate: subscription.endDate,
-              productName: subscription.productName,
-              variantName: subscription.variantName,
+              id: subscription.id,
+              status: subscription.status,
               isTrial: subscription.isTrial,
-              trialUsed: subscription.trialUsed,
+              startDate: subscription.startDate,
+              endDate: subscription.endDate,
+              package: subscription.package
+                ? {
+                    name: subscription.package.name,
+                    type: subscription.package.type,
+                  }
+                : null,
+              features: {
+                aiWriting: subscription.aiWriting,
+                hasScheduling: subscription.hasScheduling,
+              },
             }
           : null,
+        usage: usageData,
       });
     } catch (error) {
-      this.logger.error('Error checking subscription:', error);
-      return errorResponse(`Failed to check subscription: ${error.message}`);
+      this.logger.error(`Error checking subscription: ${error.message}`);
+      return errorResponse('Failed to check subscription status');
     }
   }
 
-  async createCheckout(user: User, variantId: string, redirectUrl: string) {
-    let planId: PlanId | null = null;
-    let plan: any = null;
-
+  async createCheckout(
+    user: User,
+    variantId: string,
+    redirectUrl: string,
+  ): Promise<string> {
     try {
-      if (!this.apiKey) {
-        throw new Error('Lemon Squeezy API key is not configured');
-      }
+      // Find package by variantId
+      const package_ = await this.prisma.package.findUnique({
+        where: { variantId },
+      });
 
-      const tempPlanId = getPlanByVariantId(variantId);
-      if (!tempPlanId || !['starter', 'pro'].includes(tempPlanId)) {
-        throw new Error('Invalid variant ID');
-      }
-      planId = tempPlanId as PlanId;
-
-      plan = getPlanById(planId);
-      if (!plan) {
-        throw new Error('Invalid plan');
+      if (!package_) {
+        throw new HttpException(
+          'Invalid package variant',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       const payload = {
@@ -180,8 +105,8 @@ export class SubscriptionService {
           attributes: {
             checkout_data: {
               custom: {
-                user_id: user.id.toString(),
-                plan_id: planId,
+                userId: user.id,
+                packageId: package_.id,
               },
             },
             product_options: {
@@ -207,8 +132,6 @@ export class SubscriptionService {
         },
       };
 
-      this.logger.debug('Creating checkout with payload:', payload);
-
       const checkoutResponse = await axios.post(
         'https://api.lemonsqueezy.com/v1/checkouts',
         payload,
@@ -221,86 +144,12 @@ export class SubscriptionService {
         },
       );
 
-      this.logger.debug('Checkout created successfully');
       return checkoutResponse.data.data.attributes.url;
     } catch (error) {
-      console.log('Request Payload:', {
-        storeId: this.storeId,
-        variantId,
-        userId: user.id,
-      });
-
-      if (error.response) {
-        console.log('Error Response Data:', error.response.data);
-        console.log('Error Response Status:', error.response.status);
-        console.log('Error Response Headers:', error.response.headers);
-      }
-
-      this.logger.error(
-        'Error creating checkout:',
-        error.response?.data || error,
-      );
       throw new HttpException(
         `Failed to create checkout: ${error.response?.data?.errors?.[0]?.detail || error.message}`,
         HttpStatus.BAD_REQUEST,
       );
-    }
-  }
-
-  async createSubscription(data: {
-    userId: number;
-    orderId: string;
-    planId: PlanId;
-    endDate: Date;
-    createdAt: Date;
-    productName: string;
-    variantName: string;
-    subscriptionLengthInMonths: number;
-    totalAmount: number;
-    currency: string;
-  }) {
-    try {
-      this.logger.debug('Creating subscription with data:', data);
-
-      const plan = PRICING_PLANS.find((p) => p.id === data.planId);
-      if (!plan) {
-        throw new Error(`Invalid plan variant: ${data.planId}`);
-      }
-
-      const subscription = await this.prisma.subscription.create({
-        data: {
-          userId: data.userId,
-          orderId: data.orderId,
-          planId: data.planId,
-          endDate: data.endDate,
-          createdAt: data.createdAt,
-          productName: data.productName,
-          variantName: data.variantName,
-          subscriptionLengthInMonths: data.subscriptionLengthInMonths,
-          totalAmount: data.totalAmount,
-          currency: data.currency,
-        },
-      });
-
-      await this.prisma.aIWordUsage.upsert({
-        where: { userId: data.userId },
-        create: {
-          userId: data.userId,
-          totalWordLimit: plan.limits.aiWordsPerMonth,
-          wordsGenerated: 0,
-          expirationTime: data.endDate,
-        },
-        update: {
-          totalWordLimit: plan.limits.aiWordsPerMonth,
-          expirationTime: data.endDate,
-        },
-      });
-
-      this.logger.debug('Subscription created successfully:', subscription);
-      return subscription;
-    } catch (error) {
-      this.logger.error('Error creating subscription:', error);
-      throw error;
     }
   }
 
@@ -317,51 +166,55 @@ export class SubscriptionService {
         return errorResponse('User not found');
       }
 
+      // Get Pro package
+      const proPackage = await this.prisma.package.findFirst({
+        where: { name: 'Pro' },
+      });
+
+      if (!proPackage) {
+        return errorResponse('Pro package not found');
+      }
+
       const now = new Date();
       const endDate = new Date(now);
       endDate.setMonth(endDate.getMonth() + durationInMonths);
+
+      const nextResetDate = new Date(now);
+      nextResetDate.setMonth(nextResetDate.getMonth() + 1);
 
       const subscription = await this.prisma.subscription.upsert({
         where: { userId: user.id },
         create: {
           userId: user.id,
-          orderId: `ADMIN_GIVEN_${Date.now()}`,
-          planId: 'pro',
+          packageId: proPackage.id,
+          status: 'active',
+          orderId: `ADMIN_${Date.now()}`,
+          startDate: now,
           endDate,
-          productName: 'Pro Plan',
-          variantName: 'Pro Monthly',
-          subscriptionLengthInMonths: durationInMonths,
-          totalAmount: 0,
-          currency: 'USD',
+          nextWordResetDate: nextResetDate,
+          nextPostResetDate: nextResetDate,
+          nextCarouselResetDate: nextResetDate,
+          monthlyWordLimit: proPackage.monthlyWordLimit,
+          linkedInAccountLimit: proPackage.linkedInAccountLimit,
+          linkedInPostLimit: proPackage.linkedInPostLimit,
+          carouselLimit: proPackage.carouselLimit,
+          aiWriting: proPackage.aiWriting,
+          hasScheduling: proPackage.hasScheduling,
+          billingCycle: 'monthly',
+          currency: proPackage.currency,
         },
         update: {
-          planId: 'pro',
+          packageId: proPackage.id,
+          status: 'active',
           endDate,
-          subscriptionLengthInMonths: durationInMonths,
+          monthlyWordLimit: proPackage.monthlyWordLimit,
+          linkedInAccountLimit: proPackage.linkedInAccountLimit,
+          linkedInPostLimit: proPackage.linkedInPostLimit,
+          carouselLimit: proPackage.carouselLimit,
+          aiWriting: proPackage.aiWriting,
+          hasScheduling: proPackage.hasScheduling,
         },
       });
-
-      await this.prisma.aIWordUsage.upsert({
-        where: { userId: user.id },
-        create: {
-          userId: user.id,
-          totalWordLimit:
-            PRICING_PLANS.find((p) => p.id === 'pro')?.limits.aiWordsPerMonth ||
-            0,
-          wordsGenerated: 0,
-          expirationTime: endDate,
-        },
-        update: {
-          totalWordLimit:
-            PRICING_PLANS.find((p) => p.id === 'pro')?.limits.aiWordsPerMonth ||
-            0,
-          expirationTime: endDate,
-        },
-      });
-
-      this.logger.log(
-        `Admin gave subscription to user ${user.email} for ${durationInMonths} months`,
-      );
 
       return successResponse('Subscription given successfully', {
         subscription,
@@ -371,7 +224,6 @@ export class SubscriptionService {
         },
       });
     } catch (error) {
-      this.logger.error('Error giving subscription:', error);
       return errorResponse(`Failed to give subscription: ${error.message}`);
     }
   }
@@ -389,26 +241,47 @@ export class SubscriptionService {
               user_name: true,
             },
           },
+          package: {
+            select: {
+              name: true,
+              type: true,
+              price: true,
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
         },
       });
 
+      const now = new Date();
       const formattedSubscriptions = subscriptions.map((sub) => ({
         id: sub.id,
+        status: sub.status,
         endDate: sub.endDate,
-        createdAt: sub.createdAt,
-        productName: sub.productName,
-        variantName: sub.variantName,
-        subscriptionLengthInMonths: sub.subscriptionLengthInMonths,
-        totalAmount: sub.totalAmount,
-        currency: sub.currency,
+        startDate: sub.startDate,
+        package: sub.package,
         user: sub.user,
-        isActive: sub.endDate > new Date(),
+        isActive: sub.endDate > now,
+        isTrial: sub.isTrial,
+        usage: {
+          words: {
+            used: sub.wordsGenerated,
+            limit: sub.monthlyWordLimit,
+          },
+          linkedin: {
+            accountsUsed: sub.linkedInAccountsUsed,
+            accountsLimit: sub.linkedInAccountLimit,
+            postsUsed: sub.linkedInPostsUsed,
+            postsLimit: sub.linkedInPostLimit,
+          },
+          carousels: {
+            used: sub.carouselsGenerated,
+            limit: sub.carouselLimit,
+          },
+        },
         daysRemaining: Math.ceil(
-          (sub.endDate.getTime() - new Date().getTime()) /
-            (1000 * 60 * 60 * 24),
+          (sub.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
         ),
       }));
 
@@ -419,190 +292,225 @@ export class SubscriptionService {
           .length,
       });
     } catch (error) {
-      this.logger.error('Error getting all subscriptions:', error);
       return errorResponse(`Failed to get subscriptions: ${error.message}`);
     }
   }
 
-  private async getWordUsageData(userId: number): Promise<any> {
+  async handleOrderCreated(evt: any) {
+    this.logger.log('Processing order created event');
     try {
-      const now = new Date();
-      const oneMonthFromNow = new Date();
-      oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+      const customData = evt.meta.custom_data || {};
+      const userId = customData.userId;
+      const packageId = customData.packageId;
 
-      let wordUsage = await this.prisma.aIWordUsage.findUnique({
-        where: { userId },
-        select: {
-          totalWordLimit: true,
-          wordsGenerated: true,
-          expirationTime: true,
+      if (!userId || !packageId) {
+        throw new Error('Missing userId or packageId in custom_data');
+      }
+
+      const package_ = await this.prisma.package.findUnique({
+        where: { id: packageId },
+      });
+
+      if (!package_) {
+        throw new Error(`Package not found with ID: ${packageId}`);
+      }
+
+      const isSuccessful = evt.data.attributes.status === 'paid';
+      const orderCreatedAt = new Date(evt.data.attributes.created_at);
+      const firstOrderItem = evt.data.attributes.first_order_item;
+
+      if (!firstOrderItem) {
+        throw new Error('No order items found in webhook data');
+      }
+
+      const variantName = firstOrderItem.variant_name.toLowerCase();
+      const subscriptionLengthInMonths =
+        variantName.includes('yearly') || variantName.includes('annual')
+          ? 12
+          : 1;
+
+      const startDate = new Date(orderCreatedAt);
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + subscriptionLengthInMonths);
+
+      const nextResetDate = new Date(startDate);
+      nextResetDate.setMonth(nextResetDate.getMonth() + 1);
+
+      await this.prisma.subscription.create({
+        data: {
+          userId,
+          packageId,
+          orderId: evt.data.id,
+          status: isSuccessful ? 'active' : 'pending',
+          startDate,
+          endDate,
+          nextWordResetDate: nextResetDate,
+          nextPostResetDate: nextResetDate,
+          nextCarouselResetDate: nextResetDate,
+          monthlyWordLimit: package_.monthlyWordLimit,
+          linkedInAccountLimit: package_.linkedInAccountLimit,
+          linkedInPostLimit: package_.linkedInPostLimit,
+          carouselLimit: package_.carouselLimit,
+          aiWriting: package_.aiWriting,
+          hasScheduling: package_.hasScheduling,
+          billingCycle:
+            subscriptionLengthInMonths === 12 ? 'yearly' : 'monthly',
+          currency: evt.data.attributes.currency,
+          renewalPrice: parseFloat(evt.data.attributes.total),
+          wordsGenerated: 0,
+          linkedInAccountsUsed: 0,
+          linkedInPostsUsed: 0,
+          carouselsGenerated: 0,
         },
       });
 
-      const used = wordUsage.wordsGenerated;
-      const total = wordUsage.totalWordLimit;
-      const remaining = total - used;
-      const isActive = wordUsage.expirationTime > now;
-
-      return {
-        usage: {
-          used,
-          remaining,
-          total,
-          isActive,
-          expirationDate: wordUsage.expirationTime,
-        },
-        percentage: {
-          used: Math.round((used / total) * 100) || 0,
-          remaining: Math.round((remaining / total) * 100) || 0,
-        },
-      };
+      this.logger.log('Subscription created successfully');
     } catch (error) {
-      this.logger.error(`Error getting word usage data: ${error.message}`);
-      return null;
+      this.logger.error('Error in handleOrderCreated:', {
+        message: error.message,
+        stack: error.stack,
+        eventData: evt,
+      });
+      throw error;
     }
   }
 
-  async updateWordUsageLimit({
-    userId,
-    newWordLimit,
-    expirationTime,
-  }: WordLimitUpdate) {
+  async handleSubscriptionUpdated(evt: any) {
+    this.logger.log('Processing subscription updated event');
     try {
-      this.logger.debug('Updating word usage limit:', {
-        userId,
-        newWordLimit,
-        expirationTime,
-      });
+      const customData = evt.meta.custom_data || {};
+      const userId = customData.userId;
+      const packageId = customData.packageId;
 
-      const existingAIWordUsage = await this.prisma.aIWordUsage.findUnique({
+      if (!userId) {
+        throw new Error('No userId found in custom_data');
+      }
+
+      const subscription = await this.prisma.subscription.findUnique({
         where: { userId },
       });
 
-      let finalWordLimit = newWordLimit;
-      const now = new Date();
+      if (!subscription) {
+        throw new Error('Subscription not found');
+      }
 
-      if (existingAIWordUsage) {
-        const currentExpirationTime = new Date(
-          existingAIWordUsage.expirationTime,
-        );
+      const updateData: any = {
+        status: evt.data.attributes.status,
+      };
 
-        if (currentExpirationTime > now) {
-          this.logger.debug('Accumulating word limit:', {
-            existing: existingAIWordUsage.totalWordLimit,
-            new: newWordLimit,
+      if (packageId && packageId !== subscription.packageId) {
+        const newPackage = await this.prisma.package.findUnique({
+          where: { id: packageId },
+        });
+
+        if (newPackage) {
+          Object.assign(updateData, {
+            packageId,
+            monthlyWordLimit: newPackage.monthlyWordLimit,
+            linkedInAccountLimit: newPackage.linkedInAccountLimit,
+            linkedInPostLimit: newPackage.linkedInPostLimit,
+            carouselLimit: newPackage.carouselLimit,
+            aiWriting: newPackage.aiWriting,
+            hasScheduling: newPackage.hasScheduling,
           });
-
-          finalWordLimit += existingAIWordUsage.totalWordLimit;
         }
       }
 
-      const updatedUsage = await this.prisma.aIWordUsage.upsert({
+      await this.prisma.subscription.update({
         where: { userId },
-        update: {
-          totalWordLimit: finalWordLimit,
-          expirationTime,
-          ...(!existingAIWordUsage || existingAIWordUsage.expirationTime < now
-            ? { wordsGenerated: 0 }
-            : {}),
-        },
-        create: {
-          userId,
-          totalWordLimit: finalWordLimit,
-          wordsGenerated: 0,
-          expirationTime,
-        },
+        data: updateData,
       });
-
-      this.logger.debug('Word usage limit updated:', updatedUsage);
-      return updatedUsage;
     } catch (error) {
-      this.logger.error('Error updating word usage limit:', error);
-      throw new Error(`Failed to update word usage limit: ${error.message}`);
+      this.logger.error('Error handling subscription update:', error);
+      throw error;
     }
   }
 
-  async createTrialSubscription(userId: number): Promise<{
-    success: boolean;
-    error?: string;
-  }> {
+  async handleSubscriptionCancelled(evt: any) {
+    this.logger.log('Processing subscription cancelled event');
     try {
-      const existingSubscription = await this.prisma.subscription.findUnique({
-        where: { userId },
-      });
+      const customData = evt.meta.custom_data || {};
+      const userId = customData.userId;
 
-      if (existingSubscription?.trialUsed) {
-        return {
-          success: false,
-          error: SUBSCRIPTION_CONFIG.MESSAGES.TRIAL_USED,
-        };
+      if (!userId) {
+        throw new Error('No userId found in custom_data');
       }
 
-      const trialEndDate = getTrialEndDate();
+      await this.prisma.subscription.update({
+        where: { userId },
+        data: {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+        },
+      });
+    } catch (error) {
+      this.logger.error('Error handling subscription cancellation:', error);
+      throw error;
+    }
+  }
 
-      await this.prisma.$transaction(async (prisma) => {
-        await prisma.subscription.create({
-          data: {
-            userId,
-            endDate: trialEndDate,
-            isTrial: true,
-            trialUsed: true,
-            planId: SUBSCRIPTION_CONFIG.TRIAL.PLAN_ID,
-            productName: SUBSCRIPTION_CONFIG.TRIAL.PRODUCT_NAME,
-            variantName: SUBSCRIPTION_CONFIG.TRIAL.VARIANT_NAME,
-            subscriptionLengthInMonths: 0,
-            totalAmount: 0,
-            currency: 'USD',
-            orderId: generateTrialOrderId(userId),
-          },
-        });
+  async createTrialSubscription(userId: string): Promise<ResponseModel> {
+    try {
+      const now = new Date();
+      const trialDays = this.configService.get('TRIAL_DAYS') || 3;
+      const expirationDate = new Date(
+        now.getTime() + trialDays * 24 * 60 * 60 * 1000,
+      );
 
-        const wordUsage = await prisma.aIWordUsage.create({
-          data: {
-            userId,
-            totalWordLimit: SUBSCRIPTION_CONFIG.TRIAL.TOKEN_LIMIT,
-            wordsGenerated: 0,
-            expirationTime: trialEndDate,
-            lastResetDate: new Date(),
-          },
-        });
-
-        await prisma.wordTokenLog.create({
-          data: {
-            aiWordUsageId: wordUsage.id,
-            amount: SUBSCRIPTION_CONFIG.TRIAL.TOKEN_LIMIT,
-            type: SUBSCRIPTION_CONFIG.TOKEN_LOG_TYPES.TRIAL,
-            description: 'Trial subscription token allocation',
-          },
-        });
+      // Get trial package - using the known ID
+      const trialPackage = await this.prisma.package.findUnique({
+        where: { id: coreConstant.PACKAGE_TYPE.TRIAL },
       });
 
-      return { success: true };
+      if (!trialPackage) {
+        console.log('Trial package not found');
+        return errorResponse('Trial package not found');
+      }
+
+      // Create subscription with trial settings
+      const subscription = await this.prisma.subscription.create({
+        data: {
+          user: {
+            connect: { id: userId },
+          },
+          package: {
+            connect: { id: 'trial' }, // Using the fixed ID
+          },
+          status: coreConstant.SUBSCRIPTION_STATUS.TRIAL,
+          monthlyWordLimit: trialPackage.monthlyWordLimit,
+          wordsGenerated: 0,
+          linkedInPostsUsed: 0,
+          carouselsGenerated: 0,
+          endDate: expirationDate,
+          lastWordResetDate: now,
+          nextWordResetDate: expirationDate,
+          nextPostResetDate: expirationDate,
+          nextCarouselResetDate: expirationDate,
+          isTrial: true, // Mark as trial subscription
+        },
+      });
+
+      // Create initial token log
+      await this.prisma.wordTokenLog.create({
+        data: {
+          subscription: {
+            connect: { id: subscription.id },
+          },
+          amount: trialPackage.monthlyWordLimit,
+          type: coreConstant.WORD_TOKEN_LOG_TYPE.RESET,
+          description: `Trial subscription activation with ${trialPackage.monthlyWordLimit} words`,
+          source: coreConstant.PACKAGE_TYPE.TRIAL,
+        },
+      });
+
+      this.logger.log(`Trial subscription created for user ${userId}`);
+      return successResponse(
+        'Trial subscription created successfully',
+        subscription,
+      );
     } catch (error) {
       this.logger.error('Error creating trial subscription:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
+      return errorResponse('Failed to create trial subscription');
     }
-  }
-
-  async hasTrialBeenUsed(userId: number): Promise<boolean> {
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { userId },
-    });
-    return subscription?.trialUsed || false;
-  }
-
-  async isTrialActive(userId: number): Promise<boolean> {
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { userId },
-    });
-
-    if (!subscription || !subscription.isTrial) {
-      return false;
-    }
-
-    return subscription.endDate > new Date();
   }
 }

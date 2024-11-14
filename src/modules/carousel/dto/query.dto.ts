@@ -1,11 +1,11 @@
-import { IsNumber, IsNotEmpty } from 'class-validator';
+import { IsNumber, IsNotEmpty, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class GetCarouselsQueryDto {
   @IsNotEmpty()
-  @IsNumber()
-  @Type(() => Number)
-  workspaceId: number;
+  @IsString()
+  @Type(() => String)
+  workspaceId: string;
 
   @IsNotEmpty()
   @IsNumber()
@@ -20,12 +20,11 @@ export class GetCarouselsQueryDto {
 
 export class GetCarouselQueryDto {
   @IsNotEmpty()
-  @IsNumber()
-  @Type(() => Number)
-  id: number;
+  @IsString()
+  id: string;
 
   @IsNotEmpty()
-  @IsNumber()
-  @Type(() => Number)
-  workspaceId: number;
+  @IsString()
+  @Type(() => String)
+  workspaceId: string;
 }

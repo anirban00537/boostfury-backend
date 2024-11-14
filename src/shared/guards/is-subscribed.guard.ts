@@ -1,13 +1,21 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { SubscriptionService } from '../../modules/subscription/subscription.service';
+import { PrismaService } from '../../modules/prisma/prisma.service';
 import { IS_SUBSCRIBED_KEY } from '../decorators/is-subscribed.decorator';
+import { coreConstant } from '../helpers/coreConstant';
 
 @Injectable()
 export class IsSubscribedGuard implements CanActivate {
+  private readonly logger = new Logger(IsSubscribedGuard.name);
+
   constructor(
     private reflector: Reflector,
-    private subscriptionService: SubscriptionService,
+    private prisma: PrismaService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -15,14 +23,39 @@ export class IsSubscribedGuard implements CanActivate {
       IS_SUBSCRIBED_KEY,
       context.getHandler(),
     );
-    
+
     if (!checkSubscription) return true;
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
     if (!user) return false;
 
-    const subscriptionStatus = await this.subscriptionService.checkSubscription(user);
-    return subscriptionStatus.isSubscribed;
+    try {
+      const subscription = await this.prisma.subscription.findUnique({
+        where: { userId: user.id },
+        include: { package: true },
+      });
+
+      if (!subscription) {
+        this.logger.debug(`No subscription found for user ${user.id}`);
+        return false;
+      }
+
+      const now = new Date();
+      const isValid =
+        // Check if subscription is active or trial
+        (subscription.status === coreConstant.SUBSCRIPTION_STATUS.ACTIVE ||
+          subscription.status === coreConstant.SUBSCRIPTION_STATUS.TRIAL) &&
+        // Check if subscription hasn't expired
+        subscription.endDate > now;
+
+      return isValid;
+    } catch (error) {
+      this.logger.error(
+        `Error checking subscription for user ${user.id}:`,
+        error,
+      );
+      return false;
+    }
   }
-} 
+}

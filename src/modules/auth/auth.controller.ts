@@ -46,7 +46,7 @@ export class AuthController {
   async login(
     @Body() payload: LoginCredentialsDto,
     @Req() request: Request,
-  ): Promise<LoginResponse> {
+  ): Promise<ResponseModel> {
     const browserInfo =
       `${request.ip} ${request.headers['user-agent']} ${request.headers['accept-language']}`.replace(
         / undefined/g,
@@ -83,7 +83,7 @@ export class AuthController {
 
   @Post('logoutAll')
   async logoutAll(@Req() request: Request) {
-    const { userId } = request.body.user as { userId: number };
+    const { userId } = request.body.user as { userId: string };
 
     return this.authService.logoutAll(userId);
   }
@@ -92,7 +92,7 @@ export class AuthController {
 
   @Get('tokens')
   async findAllTokens(@Req() request: Request): Promise<UserTokens[]> {
-    const { userId } = request.body.user as { userId: number };
+    const { userId } = request.body.user as { userId: string };
 
     return this.authService.findAllTokens(userId);
   }

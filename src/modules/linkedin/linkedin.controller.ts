@@ -56,7 +56,7 @@ export class LinkedInController {
   @IsSubscribed()
   async disconnectProfile(
     @UserInfo() user: User,
-    @Param('profileId') profileId: number,
+    @Param('profileId') profileId: string,
   ) {
     return this.linkedInService.disconnectLinkedInProfile(user.id, profileId);
   }

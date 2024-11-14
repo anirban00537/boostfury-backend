@@ -50,10 +50,10 @@ export class CarouselController {
 
   @Delete('delete/:id')
   deleteCarousel(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIntPipe) id: string,
     @UserInfo() user: User,
   ): Promise<ResponseModel> {
-    return this.carouselService.deleteCarousel(id, user);
+    return this.carouselService.deleteCarousel( id, user);
   }
 
   @Get('get')
@@ -103,7 +103,7 @@ export class CarouselController {
   )
   async scheduleCarousel(
     @UploadedFile() file: Express.Multer.File,
-    @Body('carouselId', ParseIntPipe) carouselId: number,
+    @Body('carouselId') carouselId: string,
     @Body('content') content: string,
     @UserInfo() user: User,
   ): Promise<ResponseModel> {

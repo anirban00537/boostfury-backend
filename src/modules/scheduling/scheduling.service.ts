@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { ContentPostingService } from '../content-posting/content-posting.service';
-import { SubscriptionService } from '../subscription/subscription.service';
 import { coreConstant } from 'src/shared/helpers/coreConstant';
 import chalk from 'chalk';
 
@@ -13,7 +12,7 @@ export class SchedulingService {
     private readonly contentPostingService: ContentPostingService,
   ) {}
 
-  private async isUserSubscriptionActive(userId: number): Promise<boolean> {
+  private async isUserSubscriptionActive(userId: string): Promise<boolean> {
     const subscription = await this.prisma.subscription.findUnique({
       where: { userId },
     });
@@ -41,6 +40,7 @@ export class SchedulingService {
         include: {
           linkedInProfile: true,
           workspace: true,
+          user: true,
         },
       });
 
@@ -93,10 +93,7 @@ export class SchedulingService {
         }
 
         try {
-          const response = await this.contentPostingService.postNow(
-            post.userId,
-            post.id,
-          );
+          await this.contentPostingService.postNow(post.userId, post.id);
         } catch (error) {
           await this.prisma.$transaction(async (prisma) => {
             await prisma.linkedInPost.update({
@@ -164,7 +161,7 @@ export class SchedulingService {
             lte: futureTime,
           },
           userId: {
-            in: activeUserIds, // Only get posts for users with active subscriptions
+            in: activeUserIds,
           },
         },
         include: {

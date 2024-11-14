@@ -16,21 +16,21 @@ export class UserVerificationCodeService {
     try {
       const checkExists = await this.prisma.userVerificationCodes.findMany({
         where: {
-          user_id: payload.user_id,
+          userId: payload.user_id,
           type: payload.type,
         },
       });
       if (checkExists.length > 0) {
         await this.prisma.userVerificationCodes.deleteMany({
           where: {
-            user_id: payload.user_id,
+            userId: payload.user_id,
             type: payload.type,
           },
         });
       }
       const createData = await this.prisma.userVerificationCodes.create({
         data: {
-          user_id: payload.user_id,
+          userId: payload.user_id,
           code: payload.code.toString(),
           type: payload.type,
           status: coreConstant.STATUS_ACTIVE,
@@ -42,10 +42,10 @@ export class UserVerificationCodeService {
       return errorResponse('Something went wrong');
     }
   }
-  async verifyUserCode(user_id: number, code: string, type: number) {
+  async verifyUserCode(user_id: string, code: string, type: number) {
     const userCode = await PrismaClient.userVerificationCodes.findFirst({
       where: {
-        user_id: user_id,
+        userId: user_id,
         code,
         type,
         status: coreConstant.STATUS_ACTIVE,

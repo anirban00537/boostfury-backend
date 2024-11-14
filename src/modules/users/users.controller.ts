@@ -75,7 +75,7 @@ export class UserController {
 
   @IsAdmin()
   @Post('change-status')
-  changeStatus(@Body() payload: { user_id: number }): Promise<ResponseModel> {
+  changeStatus(@Body() payload: { user_id: string }): Promise<ResponseModel> {
     return this.userService.changeStatus(payload);
   }
 
@@ -87,7 +87,7 @@ export class UserController {
   @IsAdmin()
   @Get('user-profile-details')
   userProfileDetails(
-    @Query() payload: { user_id: number },
+    @Query() payload: { user_id: string },
   ): Promise<ResponseModel> {
     return this.userService.userProfileDetails(payload);
   }

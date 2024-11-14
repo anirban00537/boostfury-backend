@@ -7,9 +7,9 @@ import {
 } from 'class-validator';
 
 export class UpdateWorkspaceDto {
-  @IsNumber()
+  @IsString()
   @IsNotEmpty()
-  id: number;
+  id: string;
 
   @IsString()
   @IsOptional()

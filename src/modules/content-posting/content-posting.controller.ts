@@ -43,13 +43,13 @@ export class ContentPostingController {
 
   @Get('get-draft-post-details/:id')
   @IsSubscribed()
-  async getDraftPost(@UserInfo() userInfo: User, @Param('id') id: number) {
+  async getDraftPost(@UserInfo() userInfo: User, @Param('id') id: string) {
     return this.contentPostingService.getDraftPost(userInfo.id, id);
   }
 
   @Post('post-now/:id')
   @IsSubscribed()
-  async postNow(@UserInfo() userInfo: User, @Param('id') postId: number) {
+  async postNow(@UserInfo() userInfo: User, @Param('id') postId: string) {
     return this.contentPostingService.postNow(userInfo.id, postId);
   }
 
@@ -57,7 +57,7 @@ export class ContentPostingController {
   @IsSubscribed()
   async schedulePost(
     @UserInfo() userInfo: User,
-    @Param('id') postId: number,
+    @Param('id') postId: string,
     @Body() scheduleDto: { scheduledTime: string; timeZone: string },
   ) {
     return this.contentPostingService.schedulePost(

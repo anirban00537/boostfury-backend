@@ -18,7 +18,7 @@ export class BrandingService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createUpdateBranding(
-    userId: number,
+    userId: string,
     createUpdateBrandingDto: CreateUpdateBrandingDto,
     headshot?: Express.Multer.File,
   ): Promise<ResponseModel> {
@@ -86,7 +86,7 @@ export class BrandingService {
     }
   }
 
-  async getBranding(userId: number): Promise<ResponseModel> {
+  async getBranding(userId: string): Promise<ResponseModel> {
     try {
       const userBranding = await this.prisma.userBranding.findUnique({
         where: { userId },

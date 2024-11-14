@@ -52,14 +52,14 @@ export class FileController {
 
   @Get('file/:id')
   @IsSubscribed()
-  async getFile(@Param('id') id: number): Promise<ResponseModel> {
+  async getFile(@Param('id') id: string): Promise<ResponseModel> {
     return this.fileService.getFile(id);
   }
 
   @Delete(':id')
   @IsSubscribed()
   async deleteFile(
-    @Param('id') id: number,
+    @Param('id') id: string,
     @UserInfo() user: User,
   ): Promise<ResponseModel> {
     return this.fileService.deleteFile(id, user);

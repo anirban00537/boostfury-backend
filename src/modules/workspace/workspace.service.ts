@@ -72,7 +72,7 @@ export class WorkspaceService {
   async deleteWorkspace(id: string, user: User): Promise<ResponseModel> {
     try {
       const workspace = await this.prisma.workspace.delete({
-        where: { id: parseInt(id), userId: user.id },
+        where: { id, userId: user.id },
       });
       if (!workspace) {
         return errorResponse("You don't have any workspace with this id", null);

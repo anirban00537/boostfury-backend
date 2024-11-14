@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsInt, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsEnum } from 'class-validator';
 
 export enum PostType {
   TEXT = 'text',
@@ -9,8 +9,8 @@ export enum PostType {
 
 export class CreateOrUpdateDraftPostDto {
   @IsOptional()
-  @IsInt()
-  id?: number;
+  @IsString()
+  id?: string;
 
   @IsString()
   content: string;
@@ -18,12 +18,12 @@ export class CreateOrUpdateDraftPostDto {
   @IsEnum(PostType)
   postType: PostType;
 
-  @IsInt()
-  workspaceId: number;
+  @IsString()
+  workspaceId: string;
 
   @IsOptional()
-  @IsInt()
-  linkedInProfileId?: number;
+  @IsString()
+  linkedInProfileId?: string;
 
   @IsOptional()
   @IsArray()

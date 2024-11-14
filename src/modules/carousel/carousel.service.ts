@@ -78,7 +78,7 @@ export class CarouselService {
     }
   }
 
-  async deleteCarousel(id: number, user: User): Promise<ResponseModel> {
+  async deleteCarousel(id: string, user: User): Promise<ResponseModel> {
     try {
       const carousel = await this.prisma.carousel.delete({
         where: {
@@ -96,9 +96,9 @@ export class CarouselService {
   }
 
   async getCarousel(
-    id: number,
+    id: string,
     user: User,
-    workspaceId?: number,
+    workspaceId?: string,
   ): Promise<ResponseModel> {
     try {
       const carousel = await this.prisma.carousel.findUnique({
@@ -120,7 +120,7 @@ export class CarouselService {
   async getCarouselsByUser(
     user: User,
     options: CarouselPaginationOptions = {},
-    workspaceId: number,
+    workspaceId: string,
   ): Promise<ResponseModel> {
     try {
       const result = await paginatedQuery(
@@ -160,7 +160,7 @@ export class CarouselService {
 
   async scheduleCarousel(
     documentUrl: string,
-    carouselId: number,
+    carouselId: string,
     content: string,
     user: User,
   ): Promise<ResponseModel> {

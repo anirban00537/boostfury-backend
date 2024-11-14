@@ -5,6 +5,7 @@ import { GenerateLinkedInPostsDto } from './dto/generate-linkedin-posts.dto';
 import { ResponseModel } from 'src/shared/models/response.model';
 import { OpenAIService } from './openai.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { coreConstant } from 'src/shared/helpers/coreConstant';
 
 interface TokenCheckResult {
   isValid: boolean;
@@ -38,15 +39,16 @@ export class AiContentService {
   }
 
   private async checkTokenAvailability(
-    userId: number,
+    userId: string,
     wordCount: number,
   ): Promise<TokenCheckResult> {
     try {
-      const wordUsage = await this.prisma.aIWordUsage.findUnique({
+      const subscription = await this.prisma.subscription.findUnique({
         where: { userId },
+        include: { package: true },
       });
 
-      if (!wordUsage) {
+      if (!subscription) {
         return {
           isValid: false,
           message: 'TOKEN_NOT_FOUND',
@@ -56,25 +58,25 @@ export class AiContentService {
         };
       }
 
-      if (wordUsage.expirationTime < new Date()) {
+      if (subscription.endDate < new Date()) {
         return {
           isValid: false,
           message: 'TOKEN_EXPIRED',
           remainingTokens: 0,
-          totalTokens: wordUsage.totalWordLimit,
+          totalTokens: subscription.monthlyWordLimit,
           wordCount: 0,
         };
       }
 
       const remainingTokens =
-        wordUsage.totalWordLimit - wordUsage.wordsGenerated;
+        subscription.monthlyWordLimit - subscription.wordsGenerated;
 
       if (wordCount > remainingTokens) {
         return {
           isValid: false,
           message: 'INSUFFICIENT_TOKENS',
           remainingTokens,
-          totalTokens: wordUsage.totalWordLimit,
+          totalTokens: subscription.monthlyWordLimit,
           wordCount: 0,
         };
       }
@@ -83,8 +85,8 @@ export class AiContentService {
         isValid: true,
         message: 'TOKENS_AVAILABLE',
         remainingTokens,
-        totalTokens: wordUsage.totalWordLimit,
-        wordCount: wordCount,
+        totalTokens: subscription.monthlyWordLimit,
+        wordCount,
       };
     } catch (error) {
       this.logger.error(`Error checking token availability: ${error.message}`);
@@ -93,12 +95,20 @@ export class AiContentService {
   }
 
   private async deductTokens(
-    userId: number,
+    userId: string,
     wordCount: number,
   ): Promise<boolean> {
     try {
+      const subscription = await this.prisma.subscription.findUnique({
+        where: { userId },
+      });
+
+      if (!subscription) {
+        throw new Error('Subscription not found');
+      }
+
       await this.prisma.$transaction([
-        this.prisma.aIWordUsage.update({
+        this.prisma.subscription.update({
           where: { userId },
           data: {
             wordsGenerated: {
@@ -108,10 +118,11 @@ export class AiContentService {
         }),
         this.prisma.wordTokenLog.create({
           data: {
-            aiWordUsageId: userId,
+            subscriptionId: subscription.id,
             amount: -wordCount,
-            type: 'USAGE',
+            type: coreConstant.WORD_TOKEN_LOG_TYPE.USAGE,
             description: `Content generation: ${wordCount} words`,
+            source: 'AI_CONTENT_GENERATION',
           },
         }),
       ]);
@@ -122,32 +133,41 @@ export class AiContentService {
     }
   }
 
-  async getTokenUsage(userId: number): Promise<ResponseModel> {
+  async getTokenUsage(userId: string): Promise<ResponseModel> {
     try {
       const now = new Date();
-      const oneMonthFromNow = new Date();
-      oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
-
-      let tokenUsage = await this.prisma.aIWordUsage.findUnique({
+      const subscription = await this.prisma.subscription.findUnique({
         where: { userId },
         select: {
-          totalWordLimit: true,
-          expirationTime: true,
+          monthlyWordLimit: true,
+          wordsGenerated: true,
+          endDate: true,
+          nextWordResetDate: true,
+          status: true,
         },
       });
 
-      const total = tokenUsage.totalWordLimit;
-      const isActive = tokenUsage.expirationTime > now;
+      if (!subscription) {
+        return errorResponse('No subscription found');
+      }
+
+      const total = subscription.monthlyWordLimit;
+      const used = subscription.wordsGenerated;
+      const isActive =
+        subscription.status === coreConstant.SUBSCRIPTION_STATUS.ACTIVE;
 
       return successResponse('Token usage data', {
         usage: {
           total,
+          used,
+          remaining: total - used,
           isActive,
-          expirationDate: tokenUsage.expirationTime,
+          expirationDate: subscription.endDate,
+          nextResetDate: subscription.nextWordResetDate,
         },
         percentage: {
-          used: Math.round((0 / total) * 100) || 0,
-          remaining: Math.round((total / total) * 100) || 0,
+          used: Math.round((used / total) * 100) || 0,
+          remaining: Math.round(((total - used) / total) * 100) || 0,
         },
       });
     } catch (error) {
@@ -157,7 +177,7 @@ export class AiContentService {
   }
 
   private async checkAndDeductTokens(
-    userId: number,
+    userId: string,
     content: string,
   ): Promise<TokenCheckResult> {
     try {
@@ -186,14 +206,14 @@ export class AiContentService {
   }
 
   private async checkTokenAvailabilityBeforeGeneration(
-    userId: number,
+    userId: string,
   ): Promise<TokenCheckResult> {
     try {
-      const wordUsage = await this.prisma.aIWordUsage.findUnique({
+      const subscription = await this.prisma.subscription.findUnique({
         where: { userId },
       });
 
-      if (!wordUsage) {
+      if (!subscription) {
         return {
           isValid: false,
           message: 'TOKEN_NOT_FOUND',
@@ -203,24 +223,24 @@ export class AiContentService {
         };
       }
 
-      if (wordUsage.expirationTime < new Date()) {
+      if (subscription.endDate < new Date()) {
         return {
           isValid: false,
           message: 'TOKEN_EXPIRED',
           remainingTokens: 0,
-          totalTokens: wordUsage.totalWordLimit,
+          totalTokens: subscription.monthlyWordLimit,
           wordCount: 0,
         };
       }
 
       const remainingTokens =
-        wordUsage.totalWordLimit - wordUsage.wordsGenerated;
+        subscription.monthlyWordLimit - subscription.wordsGenerated;
       if (remainingTokens <= 0) {
         return {
           isValid: false,
           message: 'INSUFFICIENT_TOKENS',
           remainingTokens,
-          totalTokens: wordUsage.totalWordLimit,
+          totalTokens: subscription.monthlyWordLimit,
           wordCount: 0,
         };
       }
@@ -229,7 +249,7 @@ export class AiContentService {
         isValid: true,
         message: 'TOKENS_AVAILABLE',
         remainingTokens,
-        totalTokens: wordUsage.totalWordLimit,
+        totalTokens: subscription.monthlyWordLimit,
         wordCount: 0,
       };
     } catch (error) {
@@ -239,7 +259,7 @@ export class AiContentService {
   }
 
   async generateCarouselContent(
-    userId: number,
+    userId: string,
     dto: GenerateCarouselContentDto,
   ): Promise<ResponseModel> {
     try {
@@ -293,7 +313,7 @@ export class AiContentService {
   }
 
   async generateLinkedInPosts(
-    userId: number,
+    userId: string,
     dto: GenerateLinkedInPostsDto,
   ): Promise<ResponseModel> {
     try {
@@ -331,7 +351,7 @@ export class AiContentService {
   }
 
   async generateLinkedInPostContentForCarousel(
-    userId: number,
+    userId: string,
     topic: string,
   ): Promise<ResponseModel> {
     try {
@@ -366,23 +386,24 @@ export class AiContentService {
     }
   }
 
-  async addTokens(userId: number, amount: number): Promise<ResponseModel> {
+  async addTokens(userId: string, amount: number): Promise<ResponseModel> {
     try {
       await this.prisma.$transaction([
-        this.prisma.aIWordUsage.update({
+        this.prisma.subscription.update({
           where: { userId },
           data: {
-            totalWordLimit: {
+            monthlyWordLimit: {
               increment: amount,
             },
           },
         }),
         this.prisma.wordTokenLog.create({
           data: {
-            aiWordUsageId: userId,
+            subscriptionId: userId,
             amount: amount,
-            type: 'CREDIT',
+            type: coreConstant.WORD_TOKEN_LOG_TYPE.RESET,
             description: `Added ${amount} tokens`,
+            source: 'AI_CONTENT_GENERATION',
           },
         }),
       ]);
@@ -394,16 +415,13 @@ export class AiContentService {
     }
   }
 
-  async resetTokens(userId: number): Promise<ResponseModel> {
+  async resetTokens(userId: string): Promise<ResponseModel> {
     try {
-      const oneMonthFromNow = new Date();
-      oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
-
-      await this.prisma.aIWordUsage.update({
+      await this.prisma.subscription.update({
         where: { userId },
         data: {
-          totalWordLimit: 0,
-          expirationTime: oneMonthFromNow,
+          wordsGenerated: 0,
+          lastWordResetDate: new Date(),
         },
       });
 
@@ -415,10 +433,10 @@ export class AiContentService {
   }
 
   async assignTokenCredits(
-    userId: number,
+    userId: string,
     credits: number,
     expirationDays: number = 30,
-  ): Promise<{ 
+  ): Promise<{
     success: boolean;
     credits?: number;
     expirationDate?: Date;
@@ -427,46 +445,83 @@ export class AiContentService {
     try {
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + expirationDays);
+      const now = new Date();
+      const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-      const existingUsage = await this.prisma.aIWordUsage.findUnique({
+      const existingSubscription = await this.prisma.subscription.findUnique({
         where: { userId },
       });
 
-      if (existingUsage) {
+      if (existingSubscription) {
+        // Update existing subscription
         await this.prisma.$transaction([
-          this.prisma.aIWordUsage.update({
+          this.prisma.subscription.update({
             where: { userId },
             data: {
-              totalWordLimit: {
+              monthlyWordLimit: {
                 increment: credits,
               },
-              expirationTime: expirationDate,
-              lastResetDate: new Date(),
+              endDate: expirationDate,
+              lastWordResetDate: now,
+              nextWordResetDate: nextMonthDate,
+              nextPostResetDate: nextMonthDate,
+              nextCarouselResetDate: nextMonthDate,
+              status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
             },
           }),
           this.prisma.wordTokenLog.create({
             data: {
-              aiWordUsageId: existingUsage.id,
+              subscription: {
+                connect: {
+                  id: existingSubscription.id,
+                },
+              },
               amount: credits,
-              type: 'CREDIT_ASSIGNMENT',
-              description: `Assigned ${credits} token credits`,
+              type: coreConstant.WORD_TOKEN_LOG_TYPE.RESET,
+              description: `Added ${credits} token credits`,
+              source: 'AI_CONTENT_GENERATION',
             },
           }),
         ]);
       } else {
-        await this.prisma.aIWordUsage.create({
+        // Create new subscription
+        const newSubscription = await this.prisma.subscription.create({
           data: {
-            userId,
-            totalWordLimit: credits,
-            wordsGenerated: 0,
-            expirationTime: expirationDate,
-            wordTokenLogs: {
-              create: {
-                amount: credits,
-                type: 'CREDIT_ASSIGNMENT',
-                description: `Initial assignment of ${credits} token credits`,
+            user: {
+              connect: {
+                id: userId,
               },
             },
+            package: {
+              connect: {
+                id: '1', // Default package ID
+              },
+            },
+            monthlyWordLimit: credits,
+            wordsGenerated: 0,
+            linkedInPostsUsed: 0,
+            carouselsGenerated: 0,
+            endDate: expirationDate,
+            lastWordResetDate: now,
+            nextWordResetDate: nextMonthDate,
+            nextPostResetDate: nextMonthDate,
+            nextCarouselResetDate: nextMonthDate,
+            status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
+          },
+        });
+
+        // Create initial token log
+        await this.prisma.wordTokenLog.create({
+          data: {
+            subscription: {
+              connect: {
+                id: newSubscription.id,
+              },
+            },
+            amount: credits,
+            type: coreConstant.WORD_TOKEN_LOG_TYPE.RESET,
+            description: `Initial assignment of ${credits} token credits`,
+            source: 'AI_CONTENT_GENERATION',
           },
         });
       }
