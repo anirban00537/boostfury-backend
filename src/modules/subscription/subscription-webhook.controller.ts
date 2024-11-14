@@ -21,9 +21,9 @@ export class SubscriptionWebhookController {
   @Post()
   async handleWebhook(@LemonSqueezyRequest() evt: any) {
     try {
-      this.logger.log('Webhook endpoint hit');
-      this.logger.log(`Event type: ${evt.meta.event_name}`);
-      this.logger.debug('Request body:', JSON.stringify(evt, null, 2));
+      console.log('Webhook endpoint hit');
+      console.log(`Event type: ${evt.meta.event_name}`);
+      console.debug('Request body:', JSON.stringify(evt, null, 2));
 
       switch (evt.meta.event_name) {
         case 'order_created':
@@ -36,13 +36,13 @@ export class SubscriptionWebhookController {
           await this.subscriptionService.handleSubscriptionCancelled(evt);
           break;
         default:
-          this.logger.warn(`Unhandled event type: ${evt.meta.event_name}`);
+          console.warn(`Unhandled event type: ${evt.meta.event_name}`);
       }
 
-      this.logger.log('Webhook processing completed');
+      console.log('Webhook processing completed');
       return { message: 'Webhook received' };
     } catch (err) {
-      this.logger.error('Error in handleWebhook:', err);
+      console.error('Error in handleWebhook:', err);
       throw new HttpException(
         err.message || 'Server error',
         err.status || HttpStatus.INTERNAL_SERVER_ERROR,

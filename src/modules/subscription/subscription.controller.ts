@@ -3,6 +3,7 @@ import { SubscriptionService } from './subscription.service';
 import { UserInfo } from 'src/shared/decorators/user.decorators';
 import { IsAdmin } from 'src/shared/decorators/is-admin.decorator';
 import { User } from '@prisma/client';
+import { Public } from 'src/shared/decorators/public.decorator';
 
 @Controller('subscription')
 export class SubscriptionController {
@@ -40,5 +41,11 @@ export class SubscriptionController {
   @IsAdmin()
   async getAllSubscriptions() {
     return this.subscriptionService.getAllSubscriptions();
+  }
+
+  @Get('get-packages')
+  @Public()
+  async getPricing() {
+    return this.subscriptionService.getPricing();
   }
 }

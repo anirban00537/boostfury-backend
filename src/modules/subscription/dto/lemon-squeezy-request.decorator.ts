@@ -1,49 +1,32 @@
-import {
-  ExecutionContext,
-  HttpException,
-  HttpStatus,
-  createParamDecorator,
-} from '@nestjs/common';
+import { createParamDecorator, ExecutionContext, BadRequestException } from '@nestjs/common';
 import * as crypto from 'crypto';
-import { webhookHasData, webhookHasMeta } from '../subscription-webhook.utils';
+import { ConfigService } from '@nestjs/config';
 
 export const LemonSqueezyRequest = createParamDecorator(
   async (data: unknown, ctx: ExecutionContext) => {
     const request = ctx.switchToHttp().getRequest();
-    const secret = process.env.LEMONSQUEEZY_WEBHOOK_SIGNATURE;
-
-    if (!secret) {
-      throw new Error(
-        'LEMONSQUEEZY_WEBHOOK_SIGNATURE is not set in the environment',
-      );
-    }
-
-    const signature = request.headers['x-signature'] as string;
     const rawBody = request.rawBody;
-
-    if (!rawBody) {
-      throw new HttpException('No raw body found', HttpStatus.BAD_REQUEST);
+    const signature = request.headers['x-signature'];
+    
+    if (!request.body || !request.body.meta) {
+      throw new BadRequestException('Missing Event Meta');
     }
 
-    // Verify signature
-    const hmac = crypto.createHmac('sha256', secret);
-    const digest = Buffer.from(hmac.update(rawBody).digest('hex'), 'utf8');
-    const signatureBuffer = Buffer.from(signature || '', 'utf8');
-
-    if (!crypto.timingSafeEqual(digest, signatureBuffer)) {
-      throw new HttpException('Invalid signature', HttpStatus.UNAUTHORIZED);
+    // Verify webhook signature if provided
+    if (signature) {
+      const configService = new ConfigService();
+      const webhookSecret = configService.get('LEMONSQUEEZY_WEBHOOK_SECRET');
+      
+      if (webhookSecret) {
+        const hmac = crypto.createHmac('sha256', webhookSecret);
+        const digest = hmac.update(rawBody).digest('hex');
+        
+        if (signature !== digest) {
+          throw new BadRequestException('Invalid webhook signature');
+        }
+      }
     }
 
-    const evt = JSON.parse(rawBody.toString('utf8'));
-
-    if (!webhookHasMeta(evt)) {
-      throw new HttpException('Missing Event Meta', HttpStatus.BAD_REQUEST);
-    }
-
-    if (!webhookHasData(evt)) {
-      throw new HttpException('Missing Event Data', HttpStatus.BAD_REQUEST);
-    }
-
-    return evt;
+    return request.body;
   },
 );

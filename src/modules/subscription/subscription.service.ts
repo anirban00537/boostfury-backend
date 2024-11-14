@@ -297,7 +297,7 @@ export class SubscriptionService {
   }
 
   async handleOrderCreated(evt: any) {
-    this.logger.log('Processing order created event');
+    console.log('Processing order created event');
     try {
       const customData = evt.meta.custom_data || {};
       const userId = customData.userId;
@@ -336,7 +336,7 @@ export class SubscriptionService {
       const nextResetDate = new Date(startDate);
       nextResetDate.setMonth(nextResetDate.getMonth() + 1);
 
-      await this.prisma.subscription.create({
+      const subscription = await this.prisma.subscription.create({
         data: {
           userId,
           packageId,
@@ -363,8 +363,9 @@ export class SubscriptionService {
           carouselsGenerated: 0,
         },
       });
+      console.log(subscription, 'subscription created');
 
-      this.logger.log('Subscription created successfully');
+      console.log('Subscription created successfully');
     } catch (error) {
       this.logger.error('Error in handleOrderCreated:', {
         message: error.message,
@@ -376,7 +377,7 @@ export class SubscriptionService {
   }
 
   async handleSubscriptionUpdated(evt: any) {
-    this.logger.log('Processing subscription updated event');
+    console.log('Processing subscription updated event');
     try {
       const customData = evt.meta.custom_data || {};
       const userId = customData.userId;
@@ -427,7 +428,7 @@ export class SubscriptionService {
   }
 
   async handleSubscriptionCancelled(evt: any) {
-    this.logger.log('Processing subscription cancelled event');
+    console.log('Processing subscription cancelled event');
     try {
       const customData = evt.meta.custom_data || {};
       const userId = customData.userId;
@@ -503,7 +504,7 @@ export class SubscriptionService {
         },
       });
 
-      this.logger.log(`Trial subscription created for user ${userId}`);
+      console.log(`Trial subscription created for user ${userId}`);
       return successResponse(
         'Trial subscription created successfully',
         subscription,
@@ -511,6 +512,111 @@ export class SubscriptionService {
     } catch (error) {
       this.logger.error('Error creating trial subscription:', error);
       return errorResponse('Failed to create trial subscription');
+    }
+  }
+
+  async getPricing(): Promise<ResponseModel> {
+    try {
+      const packages = await this.prisma.package.findMany({
+        where: {
+          status: 'active',
+          type: {
+            not: coreConstant.PACKAGE_TYPE.TRIAL, // Exclude trial package
+          },
+        },
+        orderBy: {
+          price: 'asc',
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          type: true,
+          price: true,
+          currency: true,
+          variantId: true,
+
+          // Word Generation Limits
+          monthlyWordLimit: true,
+
+          // LinkedIn Limits
+          linkedInAccountLimit: true,
+          linkedInPostLimit: true,
+          linkedInImageLimit: true,
+          linkedInVideoLimit: true,
+
+          // Carousel Limits
+          carouselLimit: true,
+          carouselSlideLimit: true,
+
+          // Features
+          hasHashtagSuggestions: true,
+          hasScheduling: true,
+
+          // Additional Features
+          additionalFeatures: true,
+        },
+      });
+
+      const formattedPackages = packages.map((pkg) => ({
+        ...pkg,
+        features: {
+          wordGeneration: {
+            limit: pkg.monthlyWordLimit,
+            description: `${pkg.monthlyWordLimit.toLocaleString()} words per month`,
+          },
+          linkedin: {
+            accounts: {
+              limit: pkg.linkedInAccountLimit,
+              description: `${pkg.linkedInAccountLimit} LinkedIn ${pkg.linkedInAccountLimit === 1 ? 'account' : 'accounts'}`,
+            },
+            posts: {
+              limit: pkg.linkedInPostLimit,
+              description: `${pkg.linkedInPostLimit} posts per month`,
+            },
+            media: {
+              images: pkg.linkedInImageLimit,
+              videos: pkg.linkedInVideoLimit,
+            },
+          },
+          carousels: {
+            limit: pkg.carouselLimit,
+            slidesPerCarousel: pkg.carouselSlideLimit,
+            description: `${pkg.carouselLimit} carousels with up to ${pkg.carouselSlideLimit} slides each`,
+          },
+          core: [
+            pkg.hasHashtagSuggestions && 'Hashtag Suggestions',
+            pkg.hasScheduling && 'Post Scheduling',
+          ].filter(Boolean),
+          additional: Object.entries(pkg.additionalFeatures || {})
+            .filter(([_, value]) => value === true)
+            .map(([key]) =>
+              key
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^./, (str) => str.toUpperCase()),
+            ),
+        },
+        billing: {
+          price: pkg.price,
+          currency: pkg.currency,
+          interval: pkg.type,
+          variantId: pkg.variantId,
+        },
+      }));
+
+      // Group packages by type (monthly/yearly)
+      const groupedPackages = {
+        monthly: formattedPackages.filter((pkg) => pkg.type === 'monthly'),
+        yearly: formattedPackages.filter((pkg) => pkg.type === 'yearly'),
+      };
+
+      return successResponse('Pricing retrieved successfully', {
+        packages: groupedPackages,
+        currencies: [...new Set(packages.map((pkg) => pkg.currency))],
+      });
+    } catch (error) {
+      this.logger.error('Error retrieving pricing:', error);
+      return errorResponse('Failed to retrieve pricing information');
     }
   }
 }
