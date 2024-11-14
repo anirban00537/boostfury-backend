@@ -619,4 +619,121 @@ export class SubscriptionService {
       return errorResponse('Failed to retrieve pricing information');
     }
   }
+
+  async handleSubscriptionCreated(evt: any): Promise<any> {
+    try {
+      const customData = evt.meta.custom_data || {};
+      const userId = customData.userId;
+      const packageId = customData.packageId;
+
+      console.log('\nSubscription Data:', {
+        userId,
+        packageId,
+        orderId: evt.data.attributes.order_id,
+        status: evt.data.attributes.status,
+      });
+
+      // Find the package first
+      const package_ = await this.prisma.package.findUnique({
+        where: { id: packageId },
+      });
+
+      if (!package_) {
+        console.error('❌ Package not found:', packageId);
+        throw new Error(`Package not found with ID: ${packageId}`);
+      }
+
+      console.log('\nPackage found:', {
+        id: package_.id,
+        name: package_.name,
+        type: package_.type,
+      });
+
+      // Find existing subscription
+      const existingSubscription = await this.prisma.subscription.findUnique({
+        where: { userId },
+      });
+
+      const subscriptionData = evt.data.attributes;
+      const startDate = new Date(subscriptionData.created_at);
+      const renewalDate = new Date(subscriptionData.renews_at);
+      const nextResetDate = new Date(startDate);
+      nextResetDate.setMonth(nextResetDate.getMonth() + 1);
+
+      const subscriptionDetails = {
+        orderId: subscriptionData.order_id.toString(),
+        status: subscriptionData.status,
+        startDate,
+        endDate: renewalDate,
+        nextWordResetDate: nextResetDate,
+        nextPostResetDate: nextResetDate,
+        nextCarouselResetDate: nextResetDate,
+        monthlyWordLimit: package_.monthlyWordLimit,
+        linkedInAccountLimit: package_.linkedInAccountLimit,
+        linkedInPostLimit: package_.linkedInPostLimit,
+        carouselLimit: package_.carouselLimit,
+        aiWriting: package_.aiWriting,
+        hasScheduling: package_.hasScheduling,
+        billingCycle: subscriptionData.variant_name.toLowerCase().includes('yearly') 
+          ? 'yearly' 
+          : 'monthly',
+        currency: 'USD',
+        renewalPrice: parseFloat(subscriptionData.first_subscription_item?.price_id) || 0,
+        wordsGenerated: 0,
+        linkedInAccountsUsed: 0,
+        linkedInPostsUsed: 0,
+        carouselsGenerated: 0,
+        isTrial: false,
+      };
+
+      let subscription;
+      
+      if (existingSubscription) {
+        console.log('\nUpdating existing subscription:', existingSubscription.id);
+        
+        subscription = await this.prisma.subscription.update({
+          where: { id: existingSubscription.id },
+          data: {
+            ...subscriptionDetails,
+            package: {
+              connect: { id: packageId }
+            }
+          },
+        });
+      } else {
+        console.log('\nCreating new subscription');
+        
+        subscription = await this.prisma.subscription.create({
+          data: {
+            ...subscriptionDetails,
+            user: {
+              connect: { id: userId }
+            },
+            package: {
+              connect: { id: packageId }
+            }
+          },
+        });
+      }
+
+      console.log('\n✅ Subscription processed successfully:', {
+        id: subscription.id,
+        userId: subscription.userId,
+        status: subscription.status,
+        endDate: subscription.endDate,
+      });
+
+      return successResponse(
+        `Subscription ${existingSubscription ? 'updated' : 'created'} successfully`, 
+        subscription
+      );
+    } catch (error) {
+      console.error('\n❌ Error in handleSubscriptionCreated:', {
+        message: error.message,
+        stack: error.stack,
+      });
+      console.error('Event data:', JSON.stringify(evt, null, 2));
+      return errorResponse(`Failed to process subscription: ${error.message}`);
+    }
+  }
 }
