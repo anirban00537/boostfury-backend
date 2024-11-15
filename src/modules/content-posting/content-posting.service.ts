@@ -170,6 +170,7 @@ export class ContentPostingService {
       ) {
         return errorResponse('Invalid post type');
       }
+      console.log('createOrUpdateDraftPostDto', createOrUpdateDraftPostDto);
 
       // Validate limits based on post type
       if (
@@ -267,6 +268,7 @@ export class ContentPostingService {
             postLogs: true,
           },
         });
+        console.log('draftPost', draftPost);
 
         logMessage = 'Post draft updated successfully';
         logStatus = coreConstant.POST_LOG_STATUS.DRAFT_UPDATED;
