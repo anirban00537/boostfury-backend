@@ -183,7 +183,7 @@ export class CarouselService {
       // Create draft post
       console.log('Creating draft post...');
       const draftPostData = {
-        content: content,
+        content: content || '',
         postType: PostType.DOCUMENT,
         workspaceId: carousel.workspaceId,
         documentUrl: documentUrl,

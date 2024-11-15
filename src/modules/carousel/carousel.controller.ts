@@ -107,9 +107,6 @@ export class CarouselController {
     @Body('content') content: string,
     @UserInfo() user: User,
   ): Promise<ResponseModel> {
-    if (!content?.trim()) {
-      return errorResponse('Content is required');
-    }
 
     const fileUrl = await this.fileService.uploadFileAndGetUrl(file, user);
     if (!fileUrl) {
