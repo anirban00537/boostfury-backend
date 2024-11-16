@@ -6,6 +6,7 @@ import {
   Get,
   Query,
   Param,
+  Delete,
 } from '@nestjs/common';
 import { ContentPostingService } from './content-posting.service';
 import { CreateOrUpdateDraftPostDto } from './dto/create-draft-post.dto';
@@ -66,5 +67,11 @@ export class ContentPostingController {
       scheduleDto.scheduledTime,
       scheduleDto.timeZone,
     );
+  }
+
+  @Delete('delete-post/:id')
+  @IsSubscribed()
+  async deleteDraftPost(@UserInfo() userInfo: User, @Param('id') id: string) {
+    return this.contentPostingService.deletePost(userInfo.id, id);
   }
 }

@@ -539,4 +539,36 @@ export class ContentPostingService {
       return errorResponse(`Failed to schedule post: ${error.message}`);
     }
   }
+  async deletePost(userId: string, postId: string): Promise<ResponseModel> {
+    try {
+      const post = await this.prisma.linkedInPost.findFirst({
+        where: {
+          id: postId,
+          userId,
+        },
+      });
+
+      if (!post) {
+        return errorResponse('Post not found');
+      }
+      //search post logs and delete them
+      await this.prisma.postLog.deleteMany({
+        where: {
+          linkedInPostId: postId,
+        },
+      });
+
+     const deletedPost = await this.prisma.linkedInPost.delete({
+        where: {
+          id: postId,
+        },
+      });
+      if (!deletedPost) {
+        return errorResponse('Post not deleted');
+      }
+      return successResponse('Post deleted successfully', deletedPost);
+    } catch (error) {
+      return errorResponse(`Failed to delete post: ${error.message}`);
+    }
+  }
 }
