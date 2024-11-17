@@ -43,18 +43,18 @@ async function main() {
   // Create Growth Package
   await prisma.package.create({
     data: {
-      id: 'growth',
-      name: 'Growth',
+      id: 'starter',
+      name: 'Starter',
       description: 'Perfect for growing professionals and small businesses',
       type: 'monthly',
       status: 'active',
-      price: 29.99,
+      price: 19,
       currency: 'USD',
-      variantId: 'growth_monthly',
-      productId: 'growth',
+      variantId: '525068',
+      productId: '354443',
 
       // Word Generation Limits
-      monthlyWordLimit: 30000,
+      monthlyWordLimit: 100000,
 
       // LinkedIn Limits
       linkedInAccountLimit: 2,
@@ -83,11 +83,11 @@ async function main() {
       status: 'active',
       price: 49.99,
       currency: 'USD',
-      variantId: 'pro_monthly',
-      productId: 'pro',
+      variantId: '585057',
+      productId: '385992',
 
       // Word Generation Limits
-      monthlyWordLimit: 100000,
+      monthlyWordLimit: 200000,
 
       // LinkedIn Limits
       linkedInAccountLimit: 5,
