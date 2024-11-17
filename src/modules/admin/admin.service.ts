@@ -235,7 +235,6 @@ export class AdminService {
         status: {
           in: [
             coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
-            coreConstant.SUBSCRIPTION_STATUS.TRIAL,
           ],
         },
       },
@@ -284,7 +283,7 @@ export class AdminService {
       }),
       trial: await this.prisma.subscription.count({
         where: {
-          status: coreConstant.SUBSCRIPTION_STATUS.TRIAL,
+          status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
           endDate: { gte: now },
         },
       }),

@@ -22,7 +22,6 @@ export const coreConstant = {
   SUBSCRIPTION_STATUS: {
     ACTIVE: 'active',
     EXPIRED: 'expired',
-    TRIAL: 'trial',
     CANCELLED: 'cancelled',
   },
   WORD_TOKEN_LOG_TYPE: {

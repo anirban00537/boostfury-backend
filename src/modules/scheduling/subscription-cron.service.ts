@@ -12,7 +12,7 @@ export class SubscriptionCronService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleSubscriptionTasks() {
     this.logger.log('Running subscription maintenance tasks...');
-    
+
     await Promise.all([
       this.handleExpiredSubscriptions(),
       this.handleWordUsageResets(),
@@ -24,7 +24,7 @@ export class SubscriptionCronService {
   private async handleExpiredSubscriptions() {
     try {
       const now = new Date();
-      
+
       const expiredSubscriptions = await this.prisma.subscription.updateMany({
         where: {
           endDate: {
@@ -37,7 +37,9 @@ export class SubscriptionCronService {
         },
       });
 
-      this.logger.log(`Updated ${expiredSubscriptions.count} expired subscriptions`);
+      this.logger.log(
+        `Updated ${expiredSubscriptions.count} expired subscriptions`,
+      );
     } catch (error) {
       this.logger.error('Error handling expired subscriptions:', error);
     }
@@ -46,7 +48,7 @@ export class SubscriptionCronService {
   private async handleWordUsageResets() {
     try {
       const now = new Date();
-      
+
       const subscriptionsToReset = await this.prisma.subscription.updateMany({
         where: {
           nextWordResetDate: {
@@ -62,7 +64,9 @@ export class SubscriptionCronService {
         },
       });
 
-      this.logger.log(`Reset word usage for ${subscriptionsToReset.count} subscriptions`);
+      this.logger.log(
+        `Reset word usage for ${subscriptionsToReset.count} subscriptions`,
+      );
     } catch (error) {
       this.logger.error('Error handling word usage resets:', error);
     }
@@ -71,7 +75,7 @@ export class SubscriptionCronService {
   private async handleLinkedInPostResets() {
     try {
       const now = new Date();
-      
+
       const subscriptionsToReset = await this.prisma.subscription.updateMany({
         where: {
           nextPostResetDate: {
@@ -87,7 +91,9 @@ export class SubscriptionCronService {
         },
       });
 
-      this.logger.log(`Reset LinkedIn post counts for ${subscriptionsToReset.count} subscriptions`);
+      this.logger.log(
+        `Reset LinkedIn post counts for ${subscriptionsToReset.count} subscriptions`,
+      );
     } catch (error) {
       this.logger.error('Error handling LinkedIn post resets:', error);
     }
@@ -96,7 +102,7 @@ export class SubscriptionCronService {
   private async handleCarouselResets() {
     try {
       const now = new Date();
-      
+
       const subscriptionsToReset = await this.prisma.subscription.updateMany({
         where: {
           nextCarouselResetDate: {
@@ -112,7 +118,9 @@ export class SubscriptionCronService {
         },
       });
 
-      this.logger.log(`Reset carousel counts for ${subscriptionsToReset.count} subscriptions`);
+      this.logger.log(
+        `Reset carousel counts for ${subscriptionsToReset.count} subscriptions`,
+      );
     } catch (error) {
       this.logger.error('Error handling carousel resets:', error);
     }
@@ -122,11 +130,11 @@ export class SubscriptionCronService {
   async handleTrialSubscriptions() {
     try {
       const now = new Date();
-      
+
       // Find trial subscriptions that have expired
       const expiredTrials = await this.prisma.subscription.updateMany({
         where: {
-          status: coreConstant.SUBSCRIPTION_STATUS.TRIAL,
+          status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
           endDate: {
             lt: now,
           },
@@ -136,7 +144,9 @@ export class SubscriptionCronService {
         },
       });
 
-      this.logger.log(`Updated ${expiredTrials.count} expired trial subscriptions`);
+      this.logger.log(
+        `Updated ${expiredTrials.count} expired trial subscriptions`,
+      );
     } catch (error) {
       this.logger.error('Error handling trial subscriptions:', error);
     }
@@ -167,7 +177,9 @@ export class SubscriptionCronService {
       });
 
       // TODO: Implement notification service
-      this.logger.log(`Found ${expiringSubscriptions.length} subscriptions expiring soon`);
+      this.logger.log(
+        `Found ${expiringSubscriptions.length} subscriptions expiring soon`,
+      );
     } catch (error) {
       this.logger.error('Error sending expiration notifications:', error);
     }

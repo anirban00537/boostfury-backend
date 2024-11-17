@@ -28,8 +28,7 @@ export class SubscriptionService {
         include: { package: true },
       });
 
-      const now = new Date();
-      const isActive = subscription?.endDate > now;
+      const isActive = subscription?.status === coreConstant.SUBSCRIPTION_STATUS.ACTIVE;
 
       // Get usage data for different features
       const usageData = {
@@ -477,7 +476,7 @@ export class SubscriptionService {
           package: {
             connect: { id: 'trial' }, // Using the fixed ID
           },
-          status: coreConstant.SUBSCRIPTION_STATUS.TRIAL,
+          status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
           monthlyWordLimit: trialPackage.monthlyWordLimit,
           wordsGenerated: 0,
           linkedInPostsUsed: 0,

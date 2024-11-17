@@ -44,8 +44,7 @@ export class IsSubscribedGuard implements CanActivate {
       const now = new Date();
       const isValid =
         // Check if subscription is active or trial
-        (subscription.status === coreConstant.SUBSCRIPTION_STATUS.ACTIVE ||
-          subscription.status === coreConstant.SUBSCRIPTION_STATUS.TRIAL) &&
+        subscription.status === coreConstant.SUBSCRIPTION_STATUS.ACTIVE &&
         // Check if subscription hasn't expired
         subscription.endDate > now;
 
