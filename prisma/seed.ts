@@ -4,8 +4,25 @@ import { coreConstant } from '../src/shared/helpers/coreConstant';
 const prisma = new PrismaClient({ log: ['query'] });
 
 async function main() {
-  // Delete existing packages
+  console.log('Starting database cleanup...');
+  
+  // Delete all existing data in reverse order of dependencies
+  await prisma.wordTokenLog.deleteMany({});
+  await prisma.postLog.deleteMany({});
+  await prisma.linkedInPost.deleteMany({});
+  await prisma.linkedInProfile.deleteMany({});
+  await prisma.carousel.deleteMany({});
+  await prisma.file.deleteMany({});
+  await prisma.userBranding.deleteMany({});
+  await prisma.userVerificationCodes.deleteMany({});
+  await prisma.userTokens.deleteMany({});
+  await prisma.subscription.deleteMany({});
   await prisma.package.deleteMany({});
+  await prisma.workspace.deleteMany({});
+  await prisma.user.deleteMany({});
+
+  console.log('Database cleanup completed');
+  console.log('Starting to seed packages...');
 
   // Create Trial Package
   await prisma.package.create({
