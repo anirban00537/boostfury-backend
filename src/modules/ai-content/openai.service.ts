@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
+import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 export interface BackgroundColors {
   color1: string; // Background Color
@@ -18,6 +19,10 @@ type Slide = {
 
 interface LinkedInPost {
   content: string;
+}
+
+interface ContentIdea {
+  idea: string;
 }
 
 @Injectable()
@@ -142,6 +147,75 @@ export class OpenAIService {
     }
   }
 
+  async generateContentIdeasForWorkspace(
+    personalAiVoice: string,
+  ): Promise<string> {
+    try {
+      const messages: ChatCompletionMessageParam[] = [
+        {
+          role: 'system' as const,
+          content: `You are an expert LinkedIn content strategist with deep experience in personal branding and engagement optimization. Your task is to generate highly engaging, professional content ideas that align with the user's expertise and target audience.`,
+        },
+        {
+          role: 'user' as const,
+          content: `Create 5 compelling LinkedIn viral content ideas for a professional with the following profile:
+
+            Here is my profile overview:
+            ${personalAiVoice}
+
+            Idea Guidelines:
+            - Keep it short and concise
+            - Based on the profile overview generate ideas on specific one topic, Donot mix up topics. Only generate ideas on one topic. 
+            - No more than 100 characters per ideas.
+            - Plain text only (NO markdown, HTML, **, #, *, _)
+            - Generate 5 unique ideas on specific one topic
+            - Scan the profile overview and generate ideas on specific one topic try to generate idea on every topic.
+
+            Output Format Example:
+            [idea1]
+            idea with a short description
+            [idea2]
+            idea with a short description
+            [idea3]
+            idea with a short description
+            [idea4]
+            idea with a short description
+            [idea5]
+            idea with a short description
+
+            Please provide 5 unique content ideas following this exact format.`,
+        },
+      ];
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini-2024-07-18',
+        messages,
+        max_tokens: 1000,
+        temperature: 0.7,
+        presence_penalty: 0.6,
+        frequency_penalty: 0.4,
+      });
+
+      if (!response?.choices?.[0]?.message?.content) {
+        throw new Error('Invalid response from OpenAI');
+      }
+
+      return response.choices[0].message.content;
+    } catch (error) {
+      this.logger.error('Error generating content ideas:', {
+        error: error.message,
+        personalAiVoice: personalAiVoice?.substring(0, 50),
+      });
+
+      if (error.message.includes('API')) {
+        throw new Error(
+          'Unable to generate content ideas at the moment. Please try again later.',
+        );
+      }
+      throw error;
+    }
+  }
+
   parseCarouselContentToJSON(content: string): Slide[] {
     const slides: Slide[] = [];
     const sections = content
@@ -235,7 +309,7 @@ export class OpenAIService {
             - Include white space for readability
 
             Content Structure (Keep it Brief):
-            1. Hook (1-2 attention-grabbing lines)
+            1. Hook (1-2 attention-grabbing lines can be question or a statement)
             2. Quick main point with example (2-3 lines)
             3. Short takeaways (3-4 bullet points max)
             4. One-line call-to-action or question
@@ -262,6 +336,7 @@ export class OpenAIService {
             - Consistent paragraph spacing
             - Avoid long stories or explanations
             - Keep each section short and focused
+            - Donot use any * ** ***
             `,
           },
           {
@@ -363,6 +438,45 @@ Make it engaging and professional while maintaining brevity.
       return [
         {
           content: content.trim(), // Return original content if parsing fails
+        },
+      ];
+    }
+  }
+
+  parseContentIdeas(content: string): ContentIdea[] {
+    try {
+      // Split content by [idea] markers and filter empty strings
+      const ideas = content
+        .split(/\[idea\d+\]/)
+        .map((idea) => idea.trim())
+        .filter((idea) => idea.length > 0)
+        .map((idea) => ({
+          idea: idea.trim(),
+        }));
+
+      // If no ideas were found using the [idea] format, try splitting by line
+      if (ideas.length === 0) {
+        const lineIdeas = content
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(
+            (line) =>
+              line.length > 0 && !line.startsWith('[') && !line.startsWith('#'),
+          )
+          .map((idea) => ({
+            idea: idea.trim(),
+          }));
+
+        return lineIdeas.slice(0, 5); // Ensure we only return 5 ideas
+      }
+
+      return ideas.slice(0, 5); // Ensure we only return 5 ideas
+    } catch (error) {
+      this.logger.error('Error parsing content ideas:', error);
+      // Return the entire content as a single idea if parsing fails
+      return [
+        {
+          idea: content.trim(),
         },
       ];
     }

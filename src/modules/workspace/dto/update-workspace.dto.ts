@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsBoolean,
   IsNumber,
+  IsArray,
 } from 'class-validator';
 
 export class UpdateWorkspaceDto {
@@ -18,4 +19,8 @@ export class UpdateWorkspaceDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  personalAiVoice?: string;
 }

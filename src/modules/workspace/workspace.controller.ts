@@ -38,4 +38,11 @@ export class WorkspaceController {
   deleteWorkspace(@Param('id') id: string, @UserInfo() user: User) {
     return this.workspaceService.deleteWorkspace(id, user);
   }
+  @Get('get-my-workspace-by-id/:workspaceId')
+  getMyWorkspaceById(
+    @Param('workspaceId') workspaceId: string,
+    @UserInfo() user: User,
+  ) {
+    return this.workspaceService.getMyWorkspaceById(workspaceId, user);
+  }
 }

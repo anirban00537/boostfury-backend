@@ -6,6 +6,7 @@ import { ResponseModel } from 'src/shared/models/response.model';
 import { OpenAIService } from './openai.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { coreConstant } from 'src/shared/helpers/coreConstant';
+import { GenerateContentIdeasForWorkspaceDto } from './dto/generate-content-ideas.dto';
 
 interface TokenCheckResult {
   isValid: boolean;
@@ -347,6 +348,40 @@ export class AiContentService {
     } catch (error) {
       this.logger.error(`Error generating LinkedIn post: ${error.message}`);
       return errorResponse('Error generating LinkedIn post');
+    }
+  }
+
+  async generateContentIdeasForWorkspace(
+    userId: string,
+    dto: GenerateContentIdeasForWorkspaceDto,
+  ): Promise<ResponseModel> {
+    try {
+      const tokenCheck =
+        await this.checkTokenAvailabilityBeforeGeneration(userId);
+      if (!tokenCheck.isValid) {
+        return errorResponse(this.getErrorMessage(tokenCheck.message));
+      }
+
+      const workspace = await this.prisma.workspace.findUnique({
+        where: { id: dto.workspaceId, userId },
+      });
+
+      if (!workspace) {
+        return errorResponse('Workspace not found');
+      }
+
+      const content = await this.openAIService.generateContentIdeasForWorkspace(
+        workspace.personalAiVoice,
+      );
+      await this.checkAndDeductTokens(userId, content);
+      const ideas = this.openAIService.parseContentIdeas(content);
+
+      return successResponse('Content ideas generated successfully', ideas);
+    } catch (error) {
+      this.logger.error(
+        `Error generating content ideas for workspace: ${error.message}`,
+      );
+      return errorResponse('Error generating content ideas for workspace');
     }
   }
 

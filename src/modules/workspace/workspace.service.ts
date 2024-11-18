@@ -58,6 +58,7 @@ export class WorkspaceService {
         data: {
           name: updateWorkspaceDto.name,
           description: updateWorkspaceDto.description,
+          personalAiVoice: updateWorkspaceDto.personalAiVoice,
         },
       });
       if (!workspace) {
@@ -78,6 +79,23 @@ export class WorkspaceService {
         return errorResponse("You don't have any workspace with this id", null);
       }
       return successResponse('Workspace deleted successfully', workspace);
+    } catch (error) {
+      processException(error);
+    }
+  }
+
+  async getMyWorkspaceById(
+    workspaceId: string,
+    user: User,
+  ): Promise<ResponseModel> {
+    try {
+      const workspace = await this.prisma.workspace.findUnique({
+        where: { id: workspaceId, userId: user.id },
+      });
+      if (!workspace) {
+        return errorResponse("You don't have any workspace with this id", null);
+      }
+      return successResponse('Workspace fetched successfully', workspace);
     } catch (error) {
       processException(error);
     }
