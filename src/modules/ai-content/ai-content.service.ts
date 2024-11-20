@@ -191,14 +191,31 @@ export class AiContentService {
       }
 
       // Deduct tokens if available
-      await this.deductTokens(userId, wordCount);
+      const deductionResult = await this.deductTokens(userId, wordCount);
+      if (!deductionResult) {
+        throw new Error('Failed to deduct tokens');
+      }
+
+      // Get updated token count after deduction
+      const subscription = await this.prisma.subscription.findUnique({
+        where: { userId },
+        select: {
+          monthlyWordLimit: true,
+          wordsGenerated: true,
+        },
+      });
+
+      if (!subscription) {
+        throw new Error('Subscription not found');
+      }
 
       return {
         isValid: true,
         message: 'Tokens deducted successfully',
-        remainingTokens: tokenCheck.remainingTokens - wordCount,
-        totalTokens: tokenCheck.totalTokens,
-        wordCount, // Added to return word count
+        remainingTokens:
+          subscription.monthlyWordLimit - subscription.wordsGenerated,
+        totalTokens: subscription.monthlyWordLimit,
+        wordCount,
       };
     } catch (error) {
       this.logger.error(`Error in checkAndDeductTokens: ${error.message}`);
@@ -245,6 +262,7 @@ export class AiContentService {
           wordCount: 0,
         };
       }
+      console.log('remainingTokens', remainingTokens);
 
       return {
         isValid: true,
@@ -356,27 +374,61 @@ export class AiContentService {
     dto: GenerateContentIdeasForWorkspaceDto,
   ): Promise<ResponseModel> {
     try {
+      // Initial token availability check
       const tokenCheck =
         await this.checkTokenAvailabilityBeforeGeneration(userId);
       if (!tokenCheck.isValid) {
         return errorResponse(this.getErrorMessage(tokenCheck.message));
       }
 
+      // Get workspace data
       const workspace = await this.prisma.workspace.findUnique({
         where: { id: dto.workspaceId, userId },
+        select: {
+          personalAiVoice: true,
+        },
       });
 
       if (!workspace) {
         return errorResponse('Workspace not found');
       }
 
+      if (!workspace.personalAiVoice) {
+        return errorResponse('Workspace AI voice not configured');
+      }
+
+      // Generate content
       const content = await this.openAIService.generateContentIdeasForWorkspace(
         workspace.personalAiVoice,
       );
-      await this.checkAndDeductTokens(userId, content);
+
+      // Deduct tokens and get updated counts
+      const tokenDeduction = await this.checkAndDeductTokens(userId, content);
+      if (!tokenDeduction.isValid) {
+        return errorResponse(this.getErrorMessage(tokenDeduction.message));
+      }
+
+      // Parse ideas
       const ideas = this.openAIService.parseContentIdeas(content);
 
-      return successResponse('Content ideas generated successfully', ideas);
+      // Get final token count after deduction
+      const finalTokenCount = await this.prisma.subscription.findUnique({
+        where: { userId },
+        select: {
+          monthlyWordLimit: true,
+          wordsGenerated: true,
+        },
+      });
+
+      return successResponse('Content ideas generated successfully', {
+        ideas,
+        tokenUsage: {
+          wordCount: tokenDeduction.wordCount,
+          remainingTokens:
+            finalTokenCount.monthlyWordLimit - finalTokenCount.wordsGenerated,
+          totalTokens: finalTokenCount.monthlyWordLimit,
+        },
+      });
     } catch (error) {
       this.logger.error(
         `Error generating content ideas for workspace: ${error.message}`,
