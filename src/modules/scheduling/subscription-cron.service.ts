@@ -151,37 +151,4 @@ export class SubscriptionCronService {
       this.logger.error('Error handling trial subscriptions:', error);
     }
   }
-
-  @Cron(CronExpression.EVERY_DAY_AT_1AM)
-  async sendExpirationNotifications() {
-    try {
-      const threeDaysFromNow = new Date();
-      threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
-
-      const expiringSubscriptions = await this.prisma.subscription.findMany({
-        where: {
-          status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
-          endDate: {
-            gte: new Date(),
-            lt: threeDaysFromNow,
-          },
-        },
-        include: {
-          user: {
-            select: {
-              email: true,
-              first_name: true,
-            },
-          },
-        },
-      });
-
-      // TODO: Implement notification service
-      this.logger.log(
-        `Found ${expiringSubscriptions.length} subscriptions expiring soon`,
-      );
-    } catch (error) {
-      this.logger.error('Error sending expiration notifications:', error);
-    }
-  }
 }
