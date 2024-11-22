@@ -42,12 +42,9 @@ export class SubscriptionGuard implements CanActivate {
 
       const now = new Date();
 
-      // Check if subscription is active or trial
-      if (subscription.status === coreConstant.SUBSCRIPTION_STATUS.ACTIVE) {
-        if (subscription.endDate <= now) {
-          throw new UnauthorizedException('Trial period has ended. Please subscribe to continue.');
-        }
-        return true;
+      // Check if subscription is expired
+      if (subscription.status === coreConstant.SUBSCRIPTION_STATUS.EXPIRED) {
+        throw new UnauthorizedException('Subscription has expired. Please renew to continue.');
       }
 
       // Check regular subscription
