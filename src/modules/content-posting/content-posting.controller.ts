@@ -7,6 +7,8 @@ import {
   Query,
   Param,
   Delete,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { ContentPostingService } from './content-posting.service';
 import { CreateOrUpdateDraftPostDto } from './dto/create-draft-post.dto';
@@ -14,6 +16,8 @@ import { GetPostsQueryDto } from './dto/get-posts.query.dto';
 import { UserInfo } from 'src/shared/decorators/user.decorators';
 import { User } from '@prisma/client';
 import { IsSubscribed } from 'src/shared/decorators/is-subscribed.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { multerUploadConfig } from 'src/shared/configs/multer-upload.config';
 
 @Controller('content-posting')
 export class ContentPostingController {
@@ -73,5 +77,49 @@ export class ContentPostingController {
   @IsSubscribed()
   async deleteDraftPost(@UserInfo() userInfo: User, @Param('id') id: string) {
     return this.contentPostingService.deletePost(userInfo.id, id);
+  }
+
+  @Post(':postId/upload-image')
+  @IsSubscribed()
+  @UseInterceptors(FileInterceptor('file', multerUploadConfig))
+  async uploadImage(
+    @UserInfo() userInfo: User,
+    @Param('postId') postId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.contentPostingService.uploadImage(userInfo.id, postId, file);
+  }
+
+  @Delete(':postId/images/:imageId')
+  @IsSubscribed()
+  async deleteImage(
+    @UserInfo() userInfo: User,
+    @Param('postId') postId: string,
+    @Param('imageId') imageId: string,
+  ) {
+    return this.contentPostingService.deleteImage(userInfo.id, postId, imageId);
+  }
+
+  @Post(':postId/reorder-images')
+  @IsSubscribed()
+  async reorderImages(
+    @UserInfo() userInfo: User,
+    @Param('postId') postId: string,
+    @Body('imageIds') imageIds: string[],
+  ) {
+    return this.contentPostingService.reorderImages(userInfo.id, postId, imageIds);
+  }
+
+  @Get('scheduled-queue')
+  @IsSubscribed()
+  async getScheduledQueue(
+    @UserInfo() userInfo: User,
+    @Query() query: GetPostsQueryDto,
+  ) {
+    return this.contentPostingService.getScheduledQueue(userInfo.id, {
+      page: query.page,
+      pageSize: query.pageSize,
+      workspace_id: query.workspace_id,
+    });
   }
 }

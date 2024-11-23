@@ -22,14 +22,12 @@ import { GetCarouselQueryDto, GetCarouselsQueryDto } from './dto/query.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { multerUploadConfig } from 'src/shared/configs/multer-upload.config';
-import { FileService } from 'src/modules/file/file.service';
 import { errorResponse } from 'src/shared/helpers/functions';
 
 @Controller('my-carousels')
 export class CarouselController {
   constructor(
     private readonly carouselService: CarouselService,
-    private readonly fileService: FileService,
   ) {}
 
   @Post('create')
@@ -108,13 +106,12 @@ export class CarouselController {
     @UserInfo() user: User,
   ): Promise<ResponseModel> {
 
-    const fileUrl = await this.fileService.uploadFileAndGetUrl(file, user);
-    if (!fileUrl) {
+    if (!file) {
       return errorResponse('Failed to upload file');
     }
 
     return this.carouselService.scheduleCarousel(
-      fileUrl,
+      "add file url here",
       carouselId,
       content,
       user,

@@ -12,7 +12,6 @@ async function main() {
   await prisma.linkedInPost.deleteMany({});
   await prisma.linkedInProfile.deleteMany({});
   await prisma.carousel.deleteMany({});
-  await prisma.file.deleteMany({});
   await prisma.userBranding.deleteMany({});
   await prisma.userVerificationCodes.deleteMany({});
   await prisma.userTokens.deleteMany({});

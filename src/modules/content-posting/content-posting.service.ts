@@ -13,6 +13,7 @@ import { GetPostsQueryDto } from './dto/get-posts.query.dto';
 import { LinkedInService } from '../linkedin/linkedin.service';
 import { isValidTimeZone } from 'src/shared/utils/timezone.util';
 import { validateLinkedInImage } from 'src/shared/utils/image-validation.util';
+import { uploadFile, deleteFileFromS3 } from 'src/shared/configs/multer-upload.config';
 
 @Injectable()
 export class ContentPostingService {
@@ -128,6 +129,7 @@ export class ContentPostingService {
         include: {
           workspace: true,
           linkedInProfile: true,
+          images: true,
           postLogs: {
             orderBy: {
               createdAt: 'desc',
@@ -191,14 +193,7 @@ export class ContentPostingService {
         );
       }
 
-      if (
-        createOrUpdateDraftPostDto.imageUrls?.length >
-        coreConstant.POST_LIMITS.MAX_IMAGES
-      ) {
-        return errorResponse(
-          `Maximum ${coreConstant.POST_LIMITS.MAX_IMAGES} images allowed`,
-        );
-      }
+    
 
       // Verify workspace exists and belongs to user
       const workspace = await this.prisma.workspace.findFirst({
@@ -229,7 +224,6 @@ export class ContentPostingService {
       const postData = {
         content: createOrUpdateDraftPostDto.content,
         postType: createOrUpdateDraftPostDto.postType,
-        imageUrls: createOrUpdateDraftPostDto.imageUrls || [],
         videoUrl: createOrUpdateDraftPostDto.videoUrl,
         documentUrl: createOrUpdateDraftPostDto.documentUrl,
         hashtags: createOrUpdateDraftPostDto.hashtags || [],
@@ -319,6 +313,7 @@ export class ContentPostingService {
         },
         include: {
           linkedInProfile: true,
+          images: true,
         },
       });
 
@@ -338,8 +333,8 @@ export class ContentPostingService {
       }
 
       // Image validation
-      if (post.imageUrls?.length) {
-        if (post.imageUrls.length > coreConstant.LINKEDIN.MAX_IMAGES) {
+      if (post.images?.length) {
+        if (post.images.length > coreConstant.LINKEDIN.MAX_IMAGES) {
           return errorResponse(
             `LinkedIn allows maximum of ${coreConstant.LINKEDIN.MAX_IMAGES} images per post`,
           );
@@ -347,8 +342,8 @@ export class ContentPostingService {
 
         // Validate each image
         console.log('Validating images...');
-        const imageValidationPromises = post.imageUrls.map((url) =>
-          validateLinkedInImage(url, {
+        const imageValidationPromises = post.images.map((image) =>
+          validateLinkedInImage(image.imageUrl, {
             maxSize: coreConstant.LINKEDIN.MAX_IMAGE_SIZE,
             supportedTypes: coreConstant.LINKEDIN.SUPPORTED_IMAGE_TYPES,
             minDimensions: coreConstant.LINKEDIN.MIN_IMAGE_DIMENSIONS,
@@ -361,7 +356,7 @@ export class ContentPostingService {
           imageValidationPromises,
         );
         const invalidImages = imageValidationResults
-          .map((result, index) => ({ result, url: post.imageUrls[index] }))
+          .map((result, index) => ({ result, url: post.images[index].imageUrl }))
           .filter((item) => !item.result.isValid);
 
         if (invalidImages.length > 0) {
@@ -373,13 +368,13 @@ export class ContentPostingService {
       }
 
       // Media combination validation
-      if (post.videoUrl && post.imageUrls?.length) {
+      if (post.videoUrl && post.images?.length) {
         return errorResponse(
           'Cannot post both video and images simultaneously on LinkedIn',
         );
       }
 
-      if (post.documentUrl && (post.imageUrls?.length || post.videoUrl)) {
+      if (post.documentUrl && (post.images?.length || post.videoUrl)) {
         return errorResponse(
           'Cannot post document with images or video on LinkedIn',
         );
@@ -388,7 +383,7 @@ export class ContentPostingService {
       console.log('=== Post Data ===', {
         ...post,
         content: post.content.substring(0, 100) + '...',
-        imageCount: post.imageUrls?.length || 0,
+        imageCount: post.images?.length || 0,
         hasVideo: !!post.videoUrl,
         hasDocument: !!post.documentUrl,
       });
@@ -398,7 +393,7 @@ export class ContentPostingService {
           post.linkedInProfile.profileId,
           {
             content: post.content,
-            imageUrls: post.imageUrls,
+            imageUrls: post.images.map(img => img.imageUrl),
             videoUrl: post.videoUrl,
             documentUrl: post.documentUrl,
           },
@@ -569,6 +564,261 @@ export class ContentPostingService {
       return successResponse('Post deleted successfully', deletedPost);
     } catch (error) {
       return errorResponse(`Failed to delete post: ${error.message}`);
+    }
+  }
+
+  async uploadImage(
+    userId: string,
+    postId: string,
+    file: Express.Multer.File,
+  ): Promise<ResponseModel> {
+    try {
+      // Verify post exists and belongs to user
+      const post = await this.prisma.linkedInPost.findFirst({
+        where: {
+          id: postId,
+          userId,
+          status: coreConstant.POST_STATUS.DRAFT,
+        },
+        include: {
+          images: true,
+        },
+      });
+
+      if (!post) {
+        return errorResponse('Draft post not found');
+      }
+
+      // Check image limit
+      if (post.images.length >= coreConstant.LINKEDIN.MAX_IMAGES) {
+        return errorResponse(
+          `Maximum ${coreConstant.LINKEDIN.MAX_IMAGES} images allowed per post`,
+        );
+      }
+
+      // Upload image to S3
+      const imageUrl = await uploadFile(file, userId);
+      if (!imageUrl) {
+        return errorResponse('Failed to upload image');
+      }
+
+      // Add image to post
+      const postImage = await this.prisma.linkedInPostImage.create({
+        data: {
+          postId: post.id,
+          imageUrl,
+          order: post.images.length, // Add as last image
+        },
+      });
+
+      return successResponse('Image uploaded successfully', { 
+        image: postImage,
+      });
+    } catch (error) {
+      return errorResponse(`Failed to upload image: ${error.message}`);
+    }
+  }
+
+  async deleteImage(
+    userId: string,
+    postId: string,
+    imageId: string,
+  ): Promise<ResponseModel> {
+    try {
+      // Verify post and image exist and belong to user
+      const postImage = await this.prisma.linkedInPostImage.findFirst({
+        where: {
+          id: imageId,
+          postId,
+          post: {
+            userId,
+            status: coreConstant.POST_STATUS.DRAFT,
+          },
+        },
+      });
+
+      if (!postImage) {
+        return errorResponse('Image not found');
+      }
+
+      // Delete from S3
+      await deleteFileFromS3(postImage.imageUrl);
+
+      // Delete from database
+      await this.prisma.linkedInPostImage.delete({
+        where: { id: imageId },
+      });
+
+      // Reorder remaining images
+      await this.prisma.linkedInPostImage.updateMany({
+        where: {
+          postId,
+          order: {
+            gt: postImage.order,
+          },
+        },
+        data: {
+          order: {
+            decrement: 1,
+          },
+        },
+      });
+
+      return successResponse('Image deleted successfully');
+    } catch (error) {
+      return errorResponse(`Failed to delete image: ${error.message}`);
+    }
+  }
+
+  async reorderImages(
+    userId: string,
+    postId: string,
+    imageIds: string[],
+  ): Promise<ResponseModel> {
+    try {
+      // Verify post exists and belongs to user
+      const post = await this.prisma.linkedInPost.findFirst({
+        where: {
+          id: postId,
+          userId,
+          status: coreConstant.POST_STATUS.DRAFT,
+        },
+        include: {
+          images: true,
+        },
+      });
+
+      if (!post) {
+        return errorResponse('Draft post not found');
+      }
+
+      // Verify all images exist and belong to post
+      const validImageIds = new Set(post.images.map(img => img.id));
+      if (!imageIds.every(id => validImageIds.has(id))) {
+        return errorResponse('Invalid image IDs provided');
+      }
+
+      // Update order of images
+      await this.prisma.$transaction(
+        imageIds.map((imageId, index) =>
+          this.prisma.linkedInPostImage.update({
+            where: { id: imageId },
+            data: { order: index },
+          }),
+        ),
+      );
+
+      return successResponse('Images reordered successfully');
+    } catch (error) {
+      return errorResponse(`Failed to reorder images: ${error.message}`);
+    }
+  }
+
+  async getScheduledQueue(
+    userId: string,
+    query: {
+      page?: number;
+      pageSize?: number;
+      workspace_id?: string;
+    },
+  ): Promise<ResponseModel> {
+    try {
+      const { page = 1, pageSize = 10, workspace_id } = query;
+
+      // Build where clause for scheduled posts
+      const where: any = {
+        userId,
+        status: coreConstant.POST_STATUS.SCHEDULED,
+        scheduledTime: {
+          gte: new Date(), // Only future scheduled posts
+        },
+      };
+
+      // Add optional workspace filter
+      if (workspace_id) {
+        where.workspaceId = workspace_id;
+      }
+
+      // Define pagination options
+      const paginationOptions: PaginationOptions = {
+        page: Number(page),
+        pageSize: Number(pageSize),
+        orderBy: {
+          scheduledTime: 'asc', // Order by scheduled time ascending
+        },
+      };
+
+      // Define include relations
+      const include = {
+        workspace: true,
+        linkedInProfile: true,
+        images: {
+          orderBy: {
+            order: 'asc',
+          },
+        },
+        postLogs: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
+        },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            first_name: true,
+            last_name: true,
+            user_name: true,
+            photo: true,
+          },
+        },
+      };
+
+      // Get paginated results
+      const result = await paginatedQuery(
+        this.prisma,
+        'linkedInPost',
+        where,
+        paginationOptions,
+        include,
+      );
+
+      // Add additional information to each post
+      const postsWithDetails = result.items.map((post: any) => ({
+        ...post,
+        statusLabel: this.getStatusLabel(post.status),
+        timeUntilPublishing: this.getTimeUntilPublishing(post.scheduledTime),
+      }));
+
+      return successResponse('Scheduled queue fetched successfully', {
+        posts: postsWithDetails,
+        pagination: result.pagination,
+      });
+    } catch (error) {
+      return errorResponse(`Failed to fetch scheduled queue: ${error.message}`);
+    }
+  }
+
+  // Helper method to calculate time until publishing
+  private getTimeUntilPublishing(scheduledTime: Date): string {
+    const now = new Date();
+    const scheduled = new Date(scheduledTime);
+    const diffInMilliseconds = scheduled.getTime() - now.getTime();
+
+    // Convert to various time units
+    const minutes = Math.floor(diffInMilliseconds / (1000 * 60));
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) {
+      return `${days} day${days > 1 ? 's' : ''} from now`;
+    } else if (hours > 0) {
+      return `${hours} hour${hours > 1 ? 's' : ''} from now`;
+    } else if (minutes > 0) {
+      return `${minutes} minute${minutes > 1 ? 's' : ''} from now`;
+    } else {
+      return 'Less than a minute';
     }
   }
 }

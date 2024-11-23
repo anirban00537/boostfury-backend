@@ -17,7 +17,6 @@ import { BrandingModule } from '../branding/branding.module';
 import { CarouselModule } from '../carousel/carousel.module';
 import { LoggerModule } from '../logger/logger.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
-import { FileModule } from '../file/file.module';
 import { AdminModule } from '../admin/admin.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
 import { AiContentModule } from '../ai-content/ai-content.module';
@@ -37,10 +36,9 @@ import { SchedulingModule } from '../scheduling/scheduling.module';
     UsersModule,
     MailModule,
     BrandingModule,
-    CarouselModule,
+    // CarouselModule,
     LoggerModule,
     SubscriptionModule,
-    FileModule,
     AdminModule,
     WorkspaceModule,
     AiContentModule,

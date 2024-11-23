@@ -36,7 +36,6 @@ model User {
   UserVerificationCodes UserVerificationCodes[]
   Subscription          Subscription?
   UserBranding          UserBranding?
-  Files                 File[]
   Workspaces            Workspace[]
 
   @@index([id])
@@ -84,7 +83,6 @@ model LinkedInPost {
   content             String           @db.Text
   visibility          String           @default("public")
   postType            String           @default("text")
-  imageUrls           String[]         @default([])
   videoUrl            String?
   documentUrl         String?
   hashtags            String[]         @default([])
@@ -108,6 +106,7 @@ model LinkedInPost {
   user                User             @relation(fields: [userId], references: [id])
   workspace           Workspace        @relation(fields: [workspaceId], references: [id])
   postLogs            PostLog[]
+  images              LinkedInPostImage[]
 
   @@index([userId])
   @@index([workspaceId])
@@ -306,23 +305,7 @@ model UserBranding {
   @@index([userId])
 }
 
-model File {
-  id           String   @id @default(cuid())
-  userId       String
-  name         String
-  originalName String
-  mimeType     String
-  size         Int
-  path         String
-  url          String?
-  isPublic     Boolean  @default(false)
-  metadata     Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  user         User     @relation(fields: [userId], references: [id])
 
-  @@index([userId])
-}
 
 model UserVerificationCodes {
   id         String   @id @default(cuid())
@@ -336,4 +319,16 @@ model UserVerificationCodes {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model LinkedInPostImage {
+  id        String       @id @default(cuid())
+  postId    String
+  imageUrl  String
+  order     Int         @default(0)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  post      LinkedInPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
 }

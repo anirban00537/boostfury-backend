@@ -25,9 +25,6 @@ export class CreateOrUpdateDraftPostDto {
   @IsString()
   linkedInProfileId?: string;
 
-  @IsOptional()
-  @IsArray()
-  imageUrls?: string[];
 
   @IsOptional()
   @IsString()
