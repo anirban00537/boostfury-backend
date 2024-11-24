@@ -18,6 +18,7 @@ import { User } from '@prisma/client';
 import { IsSubscribed } from 'src/shared/decorators/is-subscribed.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { multerUploadConfig } from 'src/shared/configs/multer-upload.config';
+import {  UpdateTimeSlotsDto } from './dto/time-slot.dto';
 
 @Controller('content-posting')
 export class ContentPostingController {
@@ -121,5 +122,28 @@ export class ContentPostingController {
       pageSize: query.pageSize,
       workspace_id: query.workspace_id,
     });
+  }
+
+  @Get('workspaces/:workspaceId/time-slots')
+  @IsSubscribed()
+  async getTimeSlots(
+    @UserInfo() userInfo: User,
+    @Param('workspaceId') workspaceId: string,
+  ) {
+    return this.contentPostingService.getTimeSlots(userInfo.id, workspaceId);
+  }
+
+  @Post('workspaces/:workspaceId/time-slots')
+  @IsSubscribed()
+  async createAndUpdateTimeSlots(
+    @UserInfo() userInfo: User,
+    @Param('workspaceId') workspaceId: string,
+    @Body() updateTimeSlotsDto: UpdateTimeSlotsDto,
+  ) {
+    return this.contentPostingService.createAndUpdateTimeSlots(
+      userInfo.id,
+      workspaceId,
+      updateTimeSlotsDto.timeSlots,
+    );
   }
 }

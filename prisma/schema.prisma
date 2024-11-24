@@ -53,6 +53,7 @@ model Workspace {
   user            User           @relation(fields: [userId], references: [id])
   linkedInPosts   LinkedInPost[]
   carousels       Carousel[]
+  postTimeSlots   PostTimeSlot[]
 
   @@index([userId])
 }
@@ -79,21 +80,21 @@ model LinkedInProfile {
 }
 
 model LinkedInPost {
-  id                  String           @id @default(cuid())
-  content             String           @db.Text
-  visibility          String           @default("public")
-  postType            String           @default("text")
+  id                  String              @id @default(cuid())
+  content             String              @db.Text
+  visibility          String              @default("public")
+  postType            String              @default("text")
   videoUrl            String?
   documentUrl         String?
-  hashtags            String[]         @default([])
+  hashtags            String[]            @default([])
   scheduledTime       DateTime?
-  status              Int              @default(0) // 0: draft, 1: scheduled, 2: posted
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  status              Int                 @default(0) // 0: draft, 1: scheduled, 2: posted
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
   publishedAt         DateTime?
   publishedId         String?
   linkedInApiResponse Json?
-  mentions            String[]         @default([])
+  mentions            String[]            @default([])
   fileUrl             String?
   publishingError     String?
   carouselTitle       String?
@@ -102,9 +103,9 @@ model LinkedInPost {
   userId              String
   workspaceId         String
   linkedInProfileId   String?
-  linkedInProfile     LinkedInProfile? @relation(fields: [linkedInProfileId], references: [id])
-  user                User             @relation(fields: [userId], references: [id])
-  workspace           Workspace        @relation(fields: [workspaceId], references: [id])
+  linkedInProfile     LinkedInProfile?    @relation(fields: [linkedInProfileId], references: [id])
+  user                User                @relation(fields: [userId], references: [id])
+  workspace           Workspace           @relation(fields: [workspaceId], references: [id])
   postLogs            PostLog[]
   images              LinkedInPostImage[]
 
@@ -305,8 +306,6 @@ model UserBranding {
   @@index([userId])
 }
 
-
-
 model UserVerificationCodes {
   id         String   @id @default(cuid())
   userId     String
@@ -325,10 +324,21 @@ model LinkedInPostImage {
   id        String       @id @default(cuid())
   postId    String
   imageUrl  String
-  order     Int         @default(0)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  order     Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
   post      LinkedInPost @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([postId])
+}
+
+model PostTimeSlot {
+  id          String    @id @default(cuid())
+  workspaceId String    @unique
+  timeSlots   Json      // This will store array of time slots
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
 }

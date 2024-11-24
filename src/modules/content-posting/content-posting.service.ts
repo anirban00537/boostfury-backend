@@ -14,6 +14,8 @@ import { LinkedInService } from '../linkedin/linkedin.service';
 import { isValidTimeZone } from 'src/shared/utils/timezone.util';
 import { validateLinkedInImage } from 'src/shared/utils/image-validation.util';
 import { uploadFile, deleteFileFromS3 } from 'src/shared/configs/multer-upload.config';
+import { TimeSlotData, TimeSlotGroup } from './dto/time-slot.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ContentPostingService {
@@ -819,6 +821,209 @@ export class ContentPostingService {
       return `${minutes} minute${minutes > 1 ? 's' : ''} from now`;
     } else {
       return 'Less than a minute';
+    }
+  }
+
+  async createAndUpdateTimeSlots(
+    userId: string,
+    workspaceId: string,
+    timeSlotGroups: TimeSlotGroup[],
+  ): Promise<ResponseModel> {
+    try {
+      // Verify workspace belongs to user
+      const workspace = await this.prisma.workspace.findFirst({
+        where: {
+          id: workspaceId,
+          userId,
+        },
+      });
+
+      if (!workspace) {
+        return errorResponse('Workspace not found');
+      }
+
+      // Validate time format for all slots
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      for (const group of timeSlotGroups) {
+        if (!timeRegex.test(group.time)) {
+          return errorResponse(`Invalid time format: ${group.time}. Use HH:mm format`);
+        }
+      }
+
+      // Check for duplicate day-time combinations
+      const timeSlotSet = new Set();
+      for (const group of timeSlotGroups) {
+        for (const slot of group.slots) {
+          const key = `${slot.dayOfWeek}-${group.time}`;
+          if (timeSlotSet.has(key)) {
+            return errorResponse(`Duplicate time slot found for day ${slot.dayOfWeek} at ${group.time}`);
+          }
+          timeSlotSet.add(key);
+        }
+      }
+
+      // Transform data for storage
+      const timeSlots: TimeSlotData[] = timeSlotGroups.flatMap(group => 
+        group.slots.map(slot => ({
+          dayOfWeek: slot.dayOfWeek,
+          time: group.time,
+          isActive: slot.isActive,
+        }))
+      );
+
+      // Convert to proper JSON format for Prisma
+      const timeSlotsJson = JSON.parse(JSON.stringify(timeSlots));
+
+      // Upsert the time slots record
+      const result = await this.prisma.postTimeSlot.upsert({
+        where: {
+          workspaceId,
+        },
+        create: {
+          workspaceId,
+          timeSlots: timeSlotsJson,
+        },
+        update: {
+          timeSlots: timeSlotsJson,
+        },
+      });
+
+      return successResponse('Time slots updated successfully', {
+        timeSlots: result.timeSlots,
+      });
+    } catch (error) {
+      console.error('Error in createAndUpdateTimeSlots:', error);
+      return errorResponse(`Failed to update time slots: ${error.message}`);
+    }
+  }
+
+  async getTimeSlots(userId: string, workspaceId: string): Promise<ResponseModel> {
+    try {
+      // Verify workspace belongs to user
+      const workspace = await this.prisma.workspace.findFirst({
+        where: {
+          id: workspaceId,
+          userId,
+        },
+      });
+
+      if (!workspace) {
+        return errorResponse('Workspace not found');
+      }
+
+      const timeSlotRecord = await this.prisma.postTimeSlot.findUnique({
+        where: { workspaceId },
+      });
+
+      if (!timeSlotRecord) {
+        return successResponse('No time slots found', { timeSlots: [] });
+      }
+
+      // Safely cast JSON data to TimeSlotData[]
+      const timeSlots = (timeSlotRecord.timeSlots as any[]).map(slot => ({
+        dayOfWeek: Number(slot.dayOfWeek),
+        time: String(slot.time),
+        isActive: Boolean(slot.isActive)
+      })) as TimeSlotData[];
+
+      // Group time slots by time
+      const groupedSlots = timeSlots.reduce((groups: TimeSlotGroup[], slot) => {
+        const existingGroup = groups.find(g => g.time === slot.time);
+        if (existingGroup) {
+          existingGroup.slots.push({
+            dayOfWeek: slot.dayOfWeek,
+            isActive: slot.isActive,
+          });
+        } else {
+          groups.push({
+            time: slot.time,
+            slots: [{
+              dayOfWeek: slot.dayOfWeek,
+              isActive: slot.isActive,
+            }],
+          });
+        }
+        return groups;
+      }, []);
+
+      return successResponse('Time slots fetched successfully', {
+        timeSlots: groupedSlots,
+      });
+    } catch (error) {
+      return errorResponse(`Failed to fetch time slots: ${error.message}`);
+    }
+  }
+
+  async getNextAvailableTimeSlot(
+    userId: string,
+    workspaceId: string,
+    fromDate: Date = new Date(),
+  ): Promise<Date | null> {
+    try {
+      // Verify workspace belongs to user
+      const workspace = await this.prisma.workspace.findFirst({
+        where: {
+          id: workspaceId,
+          userId,
+        },
+      });
+
+      if (!workspace) {
+        return null;
+      }
+
+      const timeSlotRecord = await this.prisma.postTimeSlot.findUnique({
+        where: { workspaceId },
+      });
+
+      if (!timeSlotRecord) {
+        return null;
+      }
+
+      // Safely cast JSON data to TimeSlotData[]
+      const timeSlots = (timeSlotRecord.timeSlots as any[]).map(slot => ({
+        dayOfWeek: Number(slot.dayOfWeek),
+        time: String(slot.time),
+        isActive: Boolean(slot.isActive)
+      })) as TimeSlotData[];
+
+      const activeTimeSlots = timeSlots.filter(slot => slot.isActive);
+
+      if (activeTimeSlots.length === 0) {
+        return null;
+      }
+
+      const currentDate = new Date(fromDate);
+      const currentDay = currentDate.getDay();
+      const currentTime = `${currentDate.getHours().toString().padStart(2, '0')}:${currentDate.getMinutes().toString().padStart(2, '0')}`;
+
+      // Find next available slot
+      let daysChecked = 0;
+      while (daysChecked < 7) {
+        const daySlots = activeTimeSlots.filter(
+          slot => slot.dayOfWeek === (currentDay + daysChecked) % 7
+        );
+        
+        for (const slot of daySlots) {
+          if (daysChecked === 0 && slot.time <= currentTime) {
+            continue;
+          }
+
+          const [hours, minutes] = slot.time.split(':').map(Number);
+          const nextDate = new Date(currentDate);
+          nextDate.setDate(currentDate.getDate() + daysChecked);
+          nextDate.setHours(hours, minutes, 0, 0);
+          
+          return nextDate;
+        }
+
+        daysChecked++;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error getting next available time slot:', error);
+      return null;
     }
   }
 }
