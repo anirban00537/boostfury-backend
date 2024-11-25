@@ -18,7 +18,7 @@ import { User } from '@prisma/client';
 import { IsSubscribed } from 'src/shared/decorators/is-subscribed.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { multerUploadConfig } from 'src/shared/configs/multer-upload.config';
-import {  UpdateTimeSlotsDto } from './dto/time-slot.dto';
+import { UpdateTimeSlotsDto } from './dto/time-slot.dto';
 
 @Controller('content-posting')
 export class ContentPostingController {
@@ -108,7 +108,11 @@ export class ContentPostingController {
     @Param('postId') postId: string,
     @Body('imageIds') imageIds: string[],
   ) {
-    return this.contentPostingService.reorderImages(userInfo.id, postId, imageIds);
+    return this.contentPostingService.reorderImages(
+      userInfo.id,
+      postId,
+      imageIds,
+    );
   }
 
   @Get('scheduled-queue')
@@ -145,5 +149,15 @@ export class ContentPostingController {
       workspaceId,
       updateTimeSlotsDto.timeSlots,
     );
+  }
+
+  @Post('add-to-queue/:id')
+  @IsSubscribed()
+  async addToQueue(
+    @UserInfo() userInfo: User,
+    @Param('id') postId: string,
+    @Body('timeZone') timeZone: string,
+  ) {
+    return this.contentPostingService.addToQueue(userInfo.id, postId);
   }
 }

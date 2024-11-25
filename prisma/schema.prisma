@@ -54,6 +54,7 @@ model Workspace {
   linkedInPosts   LinkedInPost[]
   carousels       Carousel[]
   postTimeSlots   PostTimeSlot[]
+  queuedPosts     QueuedPost[]
 
   @@index([userId])
 }
@@ -108,6 +109,7 @@ model LinkedInPost {
   workspace           Workspace           @relation(fields: [workspaceId], references: [id])
   postLogs            PostLog[]
   images              LinkedInPostImage[]
+  queuedPost          QueuedPost?
 
   @@index([userId])
   @@index([workspaceId])
@@ -335,10 +337,39 @@ model LinkedInPostImage {
 model PostTimeSlot {
   id          String    @id @default(cuid())
   workspaceId String    @unique
-  timeSlots   Json      // This will store array of time slots
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  // Preferred posting times for each day
+  monday    Json[]  // Array of time strings ["09:00", "15:00", "18:00"]
+  tuesday   Json[]
+  wednesday Json[]
+  thursday  Json[]
+  friday    Json[]
+  saturday  Json[]
+  sunday    Json[]
+  
+  // Queue settings
+  postsPerDay     Int     @default(2)
+  minTimeGap      Int     @default(120)  // Minimum minutes between posts
+  isEnabled       Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId])
+}
+
+model QueuedPost {
+  id          String       @id @default(cuid())
+  workspaceId String
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id])
+  postId      String      @unique
+  post        LinkedInPost @relation(fields: [postId], references: [id])
+  queueOrder  Int         // Position in queue
+  scheduledFor DateTime?   // Calculated scheduled time
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([workspaceId])
+  @@index([postId])
 }

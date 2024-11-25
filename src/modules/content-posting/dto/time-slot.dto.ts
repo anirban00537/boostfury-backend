@@ -6,6 +6,7 @@ import {
   Max,
   Min,
   ValidateNested,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -27,6 +28,9 @@ export class SlotInfo {
 
 export class TimeSlotGroup {
   @IsString()
+  @Matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+    message: 'Time must be in HH:mm format (24-hour)',
+  })
   time: string;
 
   @IsArray()
