@@ -847,67 +847,70 @@ export class ContentPostingService {
     }
   }
 
-    async createAndUpdateTimeSlots(
-      userId: string,
-      workspaceId: string,
-      timeSlotGroups: TimeSlotGroup[],
-    ): Promise<ResponseModel> {
-      try {
-        // Verify workspace belongs to user
-        const workspace = await this.prisma.workspace.findFirst({
-          where: {
-            id: workspaceId,
-            userId,
-          },
+  async createAndUpdateTimeSlots(
+    userId: string,
+    workspaceId: string,
+    timeSlotGroups: TimeSlotGroup[],
+  ): Promise<ResponseModel> {
+    try {
+      // Verify workspace belongs to user
+      const workspace = await this.prisma.workspace.findFirst({
+        where: {
+          id: workspaceId,
+          userId,
+        },
       });
 
       if (!workspace) {
         return errorResponse('Workspace not found');
       }
 
-        // Validate time format for all slots
-        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-        for (const group of timeSlotGroups) {
-          if (!timeRegex.test(group.time)) {
+      // Validate time format for all slots
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      for (const group of timeSlotGroups) {
+        if (!timeRegex.test(group.time)) {
+          return errorResponse(
+            `Invalid time format: ${group.time}. Use HH:mm format`,
+          );
+        }
+      }
+
+      // Check for duplicate day-time combinations
+      const timeSlotSet = new Set();
+      for (const group of timeSlotGroups) {
+        for (const slot of group.slots.filter((slot) => slot.isActive)) {
+          const key = `${slot.dayOfWeek}-${group.time}`;
+          if (timeSlotSet.has(key)) {
             return errorResponse(
-              `Invalid time format: ${group.time}. Use HH:mm format`,
+              `Duplicate time slot found for day ${slot.dayOfWeek} at ${group.time}`,
             );
           }
+          timeSlotSet.add(key);
         }
+      }
 
-        // Check for duplicate day-time combinations
-        const timeSlotSet = new Set();
-        for (const group of timeSlotGroups) {
-          for (const slot of group.slots.filter((slot) => slot.isActive)) {
-            const key = `${slot.dayOfWeek}-${group.time}`;
-            if (timeSlotSet.has(key)) {
-              return errorResponse(
-                `Duplicate time slot found for day ${slot.dayOfWeek} at ${group.time}`,
-              );
-            }
-            timeSlotSet.add(key);
+      // Transform data for storage by grouping slots by day
+      const groupedByDay = {} as Record<
+        number,
+        { time: string; isActive: boolean }[]
+      >;
+
+      for (const group of timeSlotGroups) {
+        for (const slot of group.slots) {
+          if (!groupedByDay[slot.dayOfWeek]) {
+            groupedByDay[slot.dayOfWeek] = [];
           }
+          groupedByDay[slot.dayOfWeek].push({
+            time: group.time,
+            isActive: slot.isActive,
+          });
         }
+      }
 
-        // Transform data for storage by grouping slots by day
-        const groupedByDay = {} as Record<number, { time: string; isActive: boolean }[]>;
-        
-        for (const group of timeSlotGroups) {
-          for (const slot of group.slots) {
-            if (!groupedByDay[slot.dayOfWeek]) {
-              groupedByDay[slot.dayOfWeek] = [];
-            }
-            groupedByDay[slot.dayOfWeek].push({
-              time: group.time,
-              isActive: slot.isActive,
-            });
-          }
-        }
-
-        // Sort time slots for each day
-        for (const day in groupedByDay) {
-          groupedByDay[day].sort((a, b) => a.time.localeCompare(b.time));
-        }
+      // Sort time slots for each day
+      for (const day in groupedByDay) {
+        groupedByDay[day].sort((a, b) => a.time.localeCompare(b.time));
+      }
 
       // Create the update data
       const updateData = {
@@ -932,20 +935,20 @@ export class ContentPostingService {
         update: updateData,
       });
 
-        return successResponse('Time slots updated successfully', {
-          monday: result.monday,
-          tuesday: result.tuesday,
-          wednesday: result.wednesday,
-          thursday: result.thursday,
-          friday: result.friday,
-          saturday: result.saturday,
-          sunday: result.sunday,
-        });
-      } catch (error) {
-        console.error('Error in createAndUpdateTimeSlots:', error);
-        return errorResponse(`Failed to update time slots: ${error.message}`);
-      }
+      return successResponse('Time slots updated successfully', {
+        monday: result.monday,
+        tuesday: result.tuesday,
+        wednesday: result.wednesday,
+        thursday: result.thursday,
+        friday: result.friday,
+        saturday: result.saturday,
+        sunday: result.sunday,
+      });
+    } catch (error) {
+      console.error('Error in createAndUpdateTimeSlots:', error);
+      return errorResponse(`Failed to update time slots: ${error.message}`);
     }
+  }
 
   async getTimeSlots(
     userId: string,
@@ -1179,7 +1182,7 @@ export class ContentPostingService {
       console.log('Current time:', now);
       console.log('Workspace ID:', workspaceId);
       console.log('Time Slots Config:', JSON.stringify(timeSlots, null, 2));
-      
+
       // Get all scheduled posts for this workspace
       const scheduledPosts = await this.prisma.linkedInPost.findMany({
         where: {
@@ -1195,11 +1198,12 @@ export class ContentPostingService {
       });
 
       console.log('Found scheduled posts:', scheduledPosts.length);
-      console.log('Scheduled posts details:', 
-        scheduledPosts.map(post => ({
+      console.log(
+        'Scheduled posts details:',
+        scheduledPosts.map((post) => ({
           id: post.id,
           scheduledTime: post.scheduledTime,
-        }))
+        })),
       );
 
       // Convert daily slots to a unified format
@@ -1213,7 +1217,10 @@ export class ContentPostingService {
         ...this.convertDayToTimeSlots(6, timeSlots.saturday),
       ];
 
-      console.log('Converted time slots:', JSON.stringify(allTimeSlots, null, 2));
+      console.log(
+        'Converted time slots:',
+        JSON.stringify(allTimeSlots, null, 2),
+      );
 
       // Check next 14 days (increased from 7 to handle more future dates)
       for (let daysAhead = 0; daysAhead < 14; daysAhead++) {
@@ -1228,49 +1235,53 @@ export class ContentPostingService {
 
         // Get available slots for this day
         const daySlots = allTimeSlots
-          .filter(slot => slot.dayOfWeek === checkDay)
-          .map(slot => {
+          .filter((slot) => slot.dayOfWeek === checkDay)
+          .map((slot) => {
             const [hours, minutes] = slot.time.split(':').map(Number);
             const slotDate = new Date(checkDate);
             slotDate.setHours(hours, minutes, 0, 0);
             return slotDate;
           })
-          .filter(slotDate => slotDate > now);
+          .filter((slotDate) => slotDate > now);
 
-        console.log('Available slots for this day:', 
-          daySlots.map(slot => slot.toISOString())
+        console.log(
+          'Available slots for this day:',
+          daySlots.map((slot) => slot.toISOString()),
         );
 
         for (const slotDate of daySlots) {
           console.log('\nEvaluating slot:', slotDate);
 
           // Check if this slot is already taken
-          const hasConflict = scheduledPosts.some(post => {
+          const hasConflict = scheduledPosts.some((post) => {
             const postTime = new Date(post.scheduledTime);
             const timeDiff = Math.abs(slotDate.getTime() - postTime.getTime());
             const minGapInMs = (timeSlots.minTimeGap || 120) * 60 * 1000;
             const hasTimeConflict = timeDiff < minGapInMs;
-            
+
             console.log('Checking conflict with post:', {
               postTime,
               timeDiff: Math.round(timeDiff / (60 * 1000)) + ' minutes',
               minGap: timeSlots.minTimeGap + ' minutes',
               hasConflict: hasTimeConflict,
             });
-            
+
             return hasTimeConflict;
           });
 
           // Count posts on this day
           const postsOnThisDay = scheduledPosts.filter(
-            post => new Date(post.scheduledTime).toDateString() === slotDate.toDateString()
+            (post) =>
+              new Date(post.scheduledTime).toDateString() ===
+              slotDate.toDateString(),
           ).length;
 
           console.log('Slot evaluation:', {
             hasConflict,
             postsOnThisDay,
             maxPostsPerDay: timeSlots.postsPerDay || 2,
-            isAvailable: !hasConflict && postsOnThisDay < (timeSlots.postsPerDay || 2),
+            isAvailable:
+              !hasConflict && postsOnThisDay < (timeSlots.postsPerDay || 2),
           });
 
           // If no conflict and within daily limit, use this slot
@@ -1290,11 +1301,14 @@ export class ContentPostingService {
   }
 
   // Helper method to convert day slots from the database format
-  private convertDayToTimeSlots(dayOfWeek: number, slots: any[]): { dayOfWeek: number; time: string }[] {
+  private convertDayToTimeSlots(
+    dayOfWeek: number,
+    slots: any[],
+  ): { dayOfWeek: number; time: string }[] {
     console.log(`Converting slots for day ${dayOfWeek}:`, slots);
     const convertedSlots = slots
-      .filter(slot => slot.isActive !== false)
-      .map(slot => ({
+      .filter((slot) => slot.isActive !== false)
+      .map((slot) => ({
         dayOfWeek,
         time: typeof slot === 'string' ? slot : slot.time,
       }));
@@ -1369,6 +1383,111 @@ export class ContentPostingService {
       return errorResponse(
         `Failed to update time slot settings: ${error.message}`,
       );
+    }
+  }
+
+  async shuffleQueue(userId: string, workspaceId: string): Promise<ResponseModel> {
+    try {
+      // Verify workspace belongs to user
+      const workspace = await this.prisma.workspace.findFirst({
+        where: {
+          id: workspaceId,
+          userId,
+        },
+      });
+
+      if (!workspace) {
+        return errorResponse('Workspace not found');
+      }
+
+      // Get all queued posts
+      const queuedPosts = await this.prisma.queuedPost.findMany({
+        where: {
+          workspaceId,
+          post: {
+            status: coreConstant.POST_STATUS.SCHEDULED,
+          },
+        },
+        include: {
+          post: true,
+        },
+        orderBy: {
+          scheduledFor: 'asc',
+        },
+      });
+
+      if (queuedPosts.length < 2) {
+        return errorResponse('Need at least 2 posts to shuffle');
+      }
+
+      // Extract existing scheduled times
+      const existingTimes = queuedPosts.map(post => post.scheduledFor);
+
+      // Shuffle the times array
+      const shuffledTimes = [...existingTimes].sort(() => Math.random() - 0.5);
+
+      // Update posts with shuffled times
+      await this.prisma.$transaction(async (prisma) => {
+        for (let i = 0; i < queuedPosts.length; i++) {
+          const post = queuedPosts[i];
+          const newScheduledTime = shuffledTimes[i];
+
+          // Update LinkedInPost
+          await prisma.linkedInPost.update({
+            where: { id: post.postId },
+            data: {
+              scheduledTime: newScheduledTime,
+            },
+          });
+
+          // Update QueuedPost
+          await prisma.queuedPost.update({
+            where: { id: post.id },
+            data: {
+              scheduledFor: newScheduledTime,
+              queueOrder: i + 1,
+            },
+          });
+
+          // Create a log entry
+          await prisma.postLog.create({
+            data: {
+              linkedInPostId: post.postId,
+              status: coreConstant.POST_LOG_STATUS.SCHEDULED,
+              message: `Post rescheduled to ${newScheduledTime.toISOString()} during queue shuffle`,
+            },
+          });
+        }
+      });
+
+      // Fetch and return the updated queue
+      const updatedQueue = await this.prisma.queuedPost.findMany({
+        where: { workspaceId },
+        include: {
+          post: {
+            include: {
+              workspace: true,
+              linkedInProfile: true,
+              postLogs: {
+                orderBy: {
+                  createdAt: 'desc',
+                },
+                take: 1,
+              },
+            },
+          },
+        },
+        orderBy: {
+          scheduledFor: 'asc',
+        },
+      });
+
+      return successResponse('Queue shuffled successfully', {
+        shuffledQueue: updatedQueue,
+      });
+    } catch (error) {
+      console.error('Error shuffling queue:', error);
+      return errorResponse(`Failed to shuffle queue: ${error.message}`);
     }
   }
 }

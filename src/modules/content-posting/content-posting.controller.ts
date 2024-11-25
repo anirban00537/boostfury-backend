@@ -160,4 +160,13 @@ export class ContentPostingController {
   ) {
     return this.contentPostingService.addToQueue(userInfo.id, postId);
   }
+
+  @Post('shuffle-queue')
+  @IsSubscribed()
+  async shuffleQueue(
+    @UserInfo() userInfo: User,
+    @Body('workspaceId') workspaceId: string,
+  ) {
+    return this.contentPostingService.shuffleQueue(userInfo.id, workspaceId);
+  }
 }
