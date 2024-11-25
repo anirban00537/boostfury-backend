@@ -20,7 +20,4 @@ export class UpdateWorkspaceDto {
   @IsOptional()
   description?: string;
 
-  @IsString()
-  @IsOptional()
-  personalAiVoice?: string;
 }

@@ -9,6 +9,7 @@ import {
 } from 'src/shared/helpers/functions';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
 import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
+import { UpdateWorkspacePersonalAiVoiceDto } from './dto/update-workspace-personal-ai-voice.dto';
 @Injectable()
 export class WorkspaceService {
   constructor(private prisma: PrismaService) {}
@@ -47,6 +48,31 @@ export class WorkspaceService {
       processException(error);
     }
   }
+  async updateWorkspacePersonalAiVoice(
+    updateWorkspacePersonalAiVoiceDto: UpdateWorkspacePersonalAiVoiceDto,
+    user: User,
+  ): Promise<ResponseModel> {
+    try {
+      const workspace = await this.prisma.workspace.update({
+        where: { id: updateWorkspacePersonalAiVoiceDto.id, userId: user.id },
+        data: {
+          personalAiVoice: updateWorkspacePersonalAiVoiceDto.personalAiVoice,
+        },
+      });
+      if (!workspace) {
+        return errorResponse(
+          'Failed to update workspace personal ai voice',
+          null,
+        );
+      }
+      return successResponse(
+        'Workspace personal ai voice updated successfully',
+        workspace,
+      );
+    } catch (error) {
+      processException(error);
+    }
+  }
 
   async updateWorkspace(
     updateWorkspaceDto: UpdateWorkspaceDto,
@@ -58,7 +84,6 @@ export class WorkspaceService {
         data: {
           name: updateWorkspaceDto.name,
           description: updateWorkspaceDto.description,
-          personalAiVoice: updateWorkspaceDto.personalAiVoice,
         },
       });
       if (!workspace) {

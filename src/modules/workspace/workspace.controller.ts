@@ -5,6 +5,7 @@ import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { UserInfo } from 'src/shared/decorators/user.decorators';
 import { User } from '@prisma/client';
 import { IsSubscribed } from 'src/shared/decorators/is-subscribed.decorator';
+import { UpdateWorkspacePersonalAiVoiceDto } from './dto/update-workspace-personal-ai-voice.dto';
 
 @Controller('workspace')
 export class WorkspaceController {
@@ -31,6 +32,15 @@ export class WorkspaceController {
     @UserInfo() user: User,
   ) {
     return this.workspaceService.updateWorkspace(updateWorkspaceDto, user);
+  }
+
+  @Post('update-workspace-personal-ai-voice')
+  @IsSubscribed()
+  updateWorkspacePersonalAiVoice(
+    @Body() updateWorkspacePersonalAiVoiceDto: UpdateWorkspacePersonalAiVoiceDto,
+    @UserInfo() user: User,
+  ) {
+    return this.workspaceService.updateWorkspacePersonalAiVoice(updateWorkspacePersonalAiVoiceDto, user);
   }
 
   @Delete('delete-workspace/:id')
