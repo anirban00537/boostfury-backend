@@ -9,6 +9,7 @@ import {
   Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { coreConstant } from 'src/shared/helpers/coreConstant';
 
 export interface TimeSlotData {
   dayOfWeek: number;
@@ -18,8 +19,8 @@ export interface TimeSlotData {
 
 export class SlotInfo {
   @IsNumber()
-  @Min(0)
-  @Max(6)
+  @Min(coreConstant.DAYS_OF_WEEK.SUNDAY)
+  @Max(coreConstant.DAYS_OF_WEEK.SATURDAY)
   dayOfWeek: number;
 
   @IsBoolean()

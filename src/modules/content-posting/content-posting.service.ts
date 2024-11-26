@@ -124,13 +124,21 @@ export class ContentPostingService {
     }
   }
 
-  async getDraftPost(userId: string, postId: string): Promise<ResponseModel> {
+  async getDraftScheduledPost(
+    userId: string,
+    postId: string,
+  ): Promise<ResponseModel> {
     try {
       const post = await this.prisma.linkedInPost.findFirst({
         where: {
           id: postId,
           userId,
-          status: coreConstant.POST_STATUS.DRAFT,
+          status: {
+            in: [
+              coreConstant.POST_STATUS.DRAFT,
+              coreConstant.POST_STATUS.SCHEDULED,
+            ],
+          },
         },
         include: {
           workspace: true,
@@ -249,7 +257,12 @@ export class ContentPostingService {
           where: {
             id: createOrUpdateDraftPostDto.id,
             userId,
-            status: coreConstant.POST_STATUS.DRAFT,
+            status: {
+              in: [
+                coreConstant.POST_STATUS.DRAFT,
+                coreConstant.POST_STATUS.SCHEDULED,
+              ],
+            },
           },
         });
 
@@ -1208,13 +1221,34 @@ export class ContentPostingService {
 
       // Convert daily slots to a unified format
       const allTimeSlots: { dayOfWeek: number; time: string }[] = [
-        ...this.convertDayToTimeSlots(0, timeSlots.sunday),
-        ...this.convertDayToTimeSlots(1, timeSlots.monday),
-        ...this.convertDayToTimeSlots(2, timeSlots.tuesday),
-        ...this.convertDayToTimeSlots(3, timeSlots.wednesday),
-        ...this.convertDayToTimeSlots(4, timeSlots.thursday),
-        ...this.convertDayToTimeSlots(5, timeSlots.friday),
-        ...this.convertDayToTimeSlots(6, timeSlots.saturday),
+        ...this.convertDayToTimeSlots(
+          coreConstant.DAYS_OF_WEEK.SUNDAY,
+          timeSlots.sunday,
+        ),
+        ...this.convertDayToTimeSlots(
+          coreConstant.DAYS_OF_WEEK.MONDAY,
+          timeSlots.monday,
+        ),
+        ...this.convertDayToTimeSlots(
+          coreConstant.DAYS_OF_WEEK.TUESDAY,
+          timeSlots.tuesday,
+        ),
+        ...this.convertDayToTimeSlots(
+          coreConstant.DAYS_OF_WEEK.WEDNESDAY,
+          timeSlots.wednesday,
+        ),
+        ...this.convertDayToTimeSlots(
+          coreConstant.DAYS_OF_WEEK.THURSDAY,
+          timeSlots.thursday,
+        ),
+        ...this.convertDayToTimeSlots(
+          coreConstant.DAYS_OF_WEEK.FRIDAY,
+          timeSlots.friday,
+        ),
+        ...this.convertDayToTimeSlots(
+          coreConstant.DAYS_OF_WEEK.SATURDAY,
+          timeSlots.saturday,
+        ),
       ];
 
       console.log(
@@ -1305,15 +1339,43 @@ export class ContentPostingService {
     dayOfWeek: number,
     slots: any[],
   ): { dayOfWeek: number; time: string }[] {
-    console.log(`Converting slots for day ${dayOfWeek}:`, slots);
+    console.log(
+      `Converting slots for day ${this.getDayName(dayOfWeek)}:`,
+      slots,
+    );
     const convertedSlots = slots
       .filter((slot) => slot.isActive !== false)
       .map((slot) => ({
         dayOfWeek,
         time: typeof slot === 'string' ? slot : slot.time,
       }));
-    console.log(`Converted slots for day ${dayOfWeek}:`, convertedSlots);
+    console.log(
+      `Converted slots for day ${this.getDayName(dayOfWeek)}:`,
+      convertedSlots,
+    );
     return convertedSlots;
+  }
+
+  // Helper method to get day name
+  private getDayName(dayOfWeek: number): string {
+    switch (dayOfWeek) {
+      case coreConstant.DAYS_OF_WEEK.SUNDAY:
+        return 'Sunday';
+      case coreConstant.DAYS_OF_WEEK.MONDAY:
+        return 'Monday';
+      case coreConstant.DAYS_OF_WEEK.TUESDAY:
+        return 'Tuesday';
+      case coreConstant.DAYS_OF_WEEK.WEDNESDAY:
+        return 'Wednesday';
+      case coreConstant.DAYS_OF_WEEK.THURSDAY:
+        return 'Thursday';
+      case coreConstant.DAYS_OF_WEEK.FRIDAY:
+        return 'Friday';
+      case coreConstant.DAYS_OF_WEEK.SATURDAY:
+        return 'Saturday';
+      default:
+        return 'Unknown';
+    }
   }
 
   private async getNextQueueOrder(workspaceId: string): Promise<number> {
@@ -1386,7 +1448,10 @@ export class ContentPostingService {
     }
   }
 
-  async shuffleQueue(userId: string, workspaceId: string): Promise<ResponseModel> {
+  async shuffleQueue(
+    userId: string,
+    workspaceId: string,
+  ): Promise<ResponseModel> {
     try {
       // Verify workspace belongs to user
       const workspace = await this.prisma.workspace.findFirst({
@@ -1421,7 +1486,7 @@ export class ContentPostingService {
       }
 
       // Extract existing scheduled times
-      const existingTimes = queuedPosts.map(post => post.scheduledFor);
+      const existingTimes = queuedPosts.map((post) => post.scheduledFor);
 
       // Shuffle the times array
       const shuffledTimes = [...existingTimes].sort(() => Math.random() - 0.5);

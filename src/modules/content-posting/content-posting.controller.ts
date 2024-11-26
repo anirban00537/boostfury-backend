@@ -24,7 +24,7 @@ import { UpdateTimeSlotsDto } from './dto/time-slot.dto';
 export class ContentPostingController {
   constructor(private readonly contentPostingService: ContentPostingService) {}
 
-  @Post('create-or-update-draft')
+  @Post('create-or-update-post')
   @IsSubscribed()
   async createOrUpdateDraftPost(
     @UserInfo() userInfo: User,
@@ -47,10 +47,10 @@ export class ContentPostingController {
     });
   }
 
-  @Get('get-draft-post-details/:id')
+  @Get('get-draft-scheduled-post-details/:id')
   @IsSubscribed()
   async getDraftPost(@UserInfo() userInfo: User, @Param('id') id: string) {
-    return this.contentPostingService.getDraftPost(userInfo.id, id);
+    return this.contentPostingService.getDraftScheduledPost(userInfo.id, id);
   }
 
   @Post('post-now/:id')
