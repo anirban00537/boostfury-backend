@@ -7,6 +7,7 @@ import { OpenAIService } from './openai.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { coreConstant } from 'src/shared/helpers/coreConstant';
 import { GenerateContentIdeasForWorkspaceDto } from './dto/generate-content-ideas.dto';
+import { RewriteContentDto } from './dto/rewrite-content.dto';
 
 interface TokenCheckResult {
   isValid: boolean;
@@ -624,6 +625,36 @@ export class AiContentService {
         success: false,
         error: error.message,
       };
+    }
+  }
+
+  async rewriteContent(
+    userId: string,
+    dto: RewriteContentDto,
+  ): Promise<ResponseModel> {
+    try {
+      // Check token availability first
+      const tokenCheck = await this.checkTokenAvailabilityBeforeGeneration(userId);
+      if (!tokenCheck.isValid) {
+        return errorResponse(this.getErrorMessage(tokenCheck.message));
+      }
+
+      const content = await this.openAIService.rewriteContent(dto.content, dto.instructions);
+
+      const tokenDeduction = await this.checkAndDeductTokens(userId, content);
+      if (!tokenDeduction.isValid) {
+        return errorResponse(this.getErrorMessage(tokenDeduction.message));
+      }
+
+      return successResponse('Content rewritten successfully', {
+        content,
+        wordCount: tokenDeduction.wordCount,
+        remainingTokens: tokenDeduction.remainingTokens,
+        totalTokens: tokenDeduction.totalTokens,
+      });
+    } catch (error) {
+      this.logger.error(`Error rewriting content: ${error.message}`);
+      return errorResponse('Error rewriting content');
     }
   }
 }

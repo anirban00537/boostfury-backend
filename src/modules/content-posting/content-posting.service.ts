@@ -269,7 +269,7 @@ export class ContentPostingService {
         if (!existingPost) {
           return errorResponse('Draft post not found');
         }
-
+        delete postData.status;
         draftPost = await this.prisma.linkedInPost.update({
           where: { id: createOrUpdateDraftPostDto.id },
           data: postData,

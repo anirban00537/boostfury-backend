@@ -7,6 +7,7 @@ import { User } from '../users/entities/user.entity';
 import { UserInfo } from 'src/shared/decorators/user.decorators';
 import { IsSubscribed } from 'src/shared/decorators/is-subscribed.decorator';
 import { GenerateContentIdeasForWorkspaceDto } from './dto/generate-content-ideas.dto';
+import { RewriteContentDto } from './dto/rewrite-content.dto';
 
 @Controller('ai-content')
 export class AiContentController {
@@ -47,5 +48,14 @@ export class AiContentController {
     @Body() dto: GenerateContentIdeasForWorkspaceDto,
   ): Promise<ResponseModel> {
     return this.aiContentService.generateContentIdeasForWorkspace(user.id, dto);
+  }
+
+  @Post('rewrite-content')
+  @IsSubscribed()
+  rewriteContent(
+    @UserInfo() user: User,
+    @Body() dto: RewriteContentDto,
+  ): Promise<ResponseModel> {
+    return this.aiContentService.rewriteContent(user.id, dto);
   }
 }

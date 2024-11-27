@@ -481,4 +481,40 @@ Make it engaging and professional while maintaining brevity.
       ];
     }
   }
+
+  async rewriteContent(content: string, instructions: string): Promise<string> {
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini-2024-07-18',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert content writer and editor. Your task is to rewrite the provided content according to specific instructions while maintaining the core message and ensuring high quality.
+            Instructions:
+            ${instructions}
+
+            Guidelines:
+            - Maintain the original meaning and key points
+            
+            Please provide only the rewritten content without any additional comments or explanations.`,
+          },
+          {
+            role: 'user',
+            content: content,
+          },
+        ],
+        max_tokens: 1000,
+        temperature: 0.7,
+      });
+
+      if (!response?.choices?.[0]?.message?.content) {
+        throw new Error('Invalid response from OpenAI');
+      }
+
+      return response.choices[0].message.content;
+    } catch (error) {
+      this.logger.error('Error rewriting content:', error);
+      throw error;
+    }
+  }
 }
