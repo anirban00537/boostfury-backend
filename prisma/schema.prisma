@@ -37,6 +37,7 @@ model User {
   Subscription          Subscription?
   UserBranding          UserBranding?
   Workspaces            Workspace[]
+  externalId            String?
 
   @@index([id])
 }

@@ -1,15 +1,15 @@
 import { Module } from '@nestjs/common';
-import { SubscriptionService } from './subscription.service';
 import { SubscriptionController } from './subscription.controller';
-import { PrismaModule } from '../prisma/prisma.module';
-import { HttpModule } from '@nestjs/axios';
-import { ConfigModule } from '@nestjs/config';
+import { SubscriptionService } from './subscription.service';
 import { SubscriptionWebhookController } from './subscription-webhook.controller';
+import { PrismaService } from '../prisma/prisma.service';
+import { PaddleUtil } from 'src/shared/utils';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [PrismaModule, HttpModule, ConfigModule],
+  imports: [ConfigModule],
   controllers: [SubscriptionController, SubscriptionWebhookController],
-  providers: [SubscriptionService],
+  providers: [SubscriptionService, PrismaService, PaddleUtil],
   exports: [SubscriptionService],
 })
 export class SubscriptionModule {}

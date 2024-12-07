@@ -53,19 +53,15 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
-  // Only add the rawbody string if this is a webhook request.
-  const rawBodyBuffer = (req, res, buffer, encoding) => {
-    if (!req.headers['x-signature']) {
-      return;
+  // Add raw body parser for Paddle webhooks
+  app.use(express.raw({ 
+    type: 'application/json',
+    verify: (req: any, res: any, buffer: Buffer) => {
+      if (req.headers['paddle-signature']) {
+        req.rawBody = buffer;
+      }
     }
-
-    if (buffer && buffer.length) {
-      req.rawBody = buffer.toString(encoding || 'utf8');
-    }
-  };
-
-  app.use(bodyParser.urlencoded({ verify: rawBodyBuffer, extended: true }));
-  app.use(bodyParser.json({ verify: rawBodyBuffer }));
+  }));
 
   // If you need to increase the body size limit
   app.use(bodyParser.json({ limit: '10mb' }));
