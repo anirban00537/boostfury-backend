@@ -44,11 +44,7 @@ export class SubscriptionService {
           postsLimit: subscription?.linkedInPostLimit || 0,
           nextReset: subscription?.nextPostResetDate,
         },
-        carousels: {
-          used: subscription?.carouselsGenerated || 0,
-          limit: subscription?.carouselLimit || 0,
-          nextReset: subscription?.nextCarouselResetDate,
-        },
+       
       };
 
       return successResponse('Subscription status retrieved', {
@@ -67,8 +63,9 @@ export class SubscriptionService {
                   }
                 : null,
               features: {
-                aiWriting: subscription.aiWriting,
-                hasScheduling: subscription.hasScheduling,
+                viralPostGeneration: subscription.package.viralPostGeneration,
+                aiStudio: subscription.package.aiStudio,
+                postIdeaGenerator: subscription.package.postIdeaGenerator,
               },
             }
           : null,
@@ -192,13 +189,12 @@ export class SubscriptionService {
           endDate,
           nextWordResetDate: nextResetDate,
           nextPostResetDate: nextResetDate,
-          nextCarouselResetDate: nextResetDate,
           monthlyWordLimit: proPackage.monthlyWordLimit,
           linkedInAccountLimit: proPackage.linkedInAccountLimit,
           linkedInPostLimit: proPackage.linkedInPostLimit,
-          carouselLimit: proPackage.carouselLimit,
-          aiWriting: proPackage.aiWriting,
-          hasScheduling: proPackage.hasScheduling,
+          viralPostGeneration: proPackage.viralPostGeneration,
+          aiStudio: proPackage.aiStudio,
+          postIdeaGenerator: proPackage.postIdeaGenerator,
           billingCycle: 'monthly',
           currency: proPackage.currency,
         },
@@ -209,9 +205,9 @@ export class SubscriptionService {
           monthlyWordLimit: proPackage.monthlyWordLimit,
           linkedInAccountLimit: proPackage.linkedInAccountLimit,
           linkedInPostLimit: proPackage.linkedInPostLimit,
-          carouselLimit: proPackage.carouselLimit,
-          aiWriting: proPackage.aiWriting,
-          hasScheduling: proPackage.hasScheduling,
+          viralPostGeneration: proPackage.viralPostGeneration,
+          aiStudio: proPackage.aiStudio,
+          postIdeaGenerator: proPackage.postIdeaGenerator,
         },
       });
 
@@ -274,10 +270,7 @@ export class SubscriptionService {
             postsUsed: sub.linkedInPostsUsed,
             postsLimit: sub.linkedInPostLimit,
           },
-          carousels: {
-            used: sub.carouselsGenerated,
-            limit: sub.carouselLimit,
-          },
+         
         },
         daysRemaining: Math.ceil(
           (sub.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
@@ -345,13 +338,12 @@ export class SubscriptionService {
           endDate,
           nextWordResetDate: nextResetDate,
           nextPostResetDate: nextResetDate,
-          nextCarouselResetDate: nextResetDate,
           monthlyWordLimit: package_.monthlyWordLimit,
           linkedInAccountLimit: package_.linkedInAccountLimit,
           linkedInPostLimit: package_.linkedInPostLimit,
-          carouselLimit: package_.carouselLimit,
-          aiWriting: package_.aiWriting,
-          hasScheduling: package_.hasScheduling,
+          viralPostGeneration: package_.viralPostGeneration,
+          aiStudio: package_.aiStudio,
+          postIdeaGenerator: package_.postIdeaGenerator,
           billingCycle:
             subscriptionLengthInMonths === 12 ? 'yearly' : 'monthly',
           currency: evt.data.attributes.currency,
@@ -359,7 +351,6 @@ export class SubscriptionService {
           wordsGenerated: 0,
           linkedInAccountsUsed: 0,
           linkedInPostsUsed: 0,
-          carouselsGenerated: 0,
         },
       });
       console.log(subscription, 'subscription created');
@@ -409,9 +400,9 @@ export class SubscriptionService {
             monthlyWordLimit: newPackage.monthlyWordLimit,
             linkedInAccountLimit: newPackage.linkedInAccountLimit,
             linkedInPostLimit: newPackage.linkedInPostLimit,
-            carouselLimit: newPackage.carouselLimit,
-            aiWriting: newPackage.aiWriting,
-            hasScheduling: newPackage.hasScheduling,
+            viralPostGeneration: newPackage.viralPostGeneration,
+            aiStudio: newPackage.aiStudio,
+            postIdeaGenerator: newPackage.postIdeaGenerator,
           });
         }
       }
@@ -480,12 +471,10 @@ export class SubscriptionService {
           monthlyWordLimit: trialPackage.monthlyWordLimit,
           wordsGenerated: 0,
           linkedInPostsUsed: 0,
-          carouselsGenerated: 0,
           endDate: expirationDate,
           lastWordResetDate: now,
           nextWordResetDate: expirationDate,
           nextPostResetDate: expirationDate,
-          nextCarouselResetDate: expirationDate,
           isTrial: true, // Mark as trial subscription
         },
       });
@@ -544,13 +533,10 @@ export class SubscriptionService {
           linkedInImageLimit: true,
           linkedInVideoLimit: true,
 
-          // Carousel Limits
-          carouselLimit: true,
-          carouselSlideLimit: true,
-
           // Features
-          hasHashtagSuggestions: true,
-          hasScheduling: true,
+          viralPostGeneration: true,
+          aiStudio: true,
+          postIdeaGenerator: true,
 
           // Additional Features
           additionalFeatures: true,
@@ -578,14 +564,11 @@ export class SubscriptionService {
               videos: pkg.linkedInVideoLimit,
             },
           },
-          carousels: {
-            limit: pkg.carouselLimit,
-            slidesPerCarousel: pkg.carouselSlideLimit,
-            description: `${pkg.carouselLimit} carousels with up to ${pkg.carouselSlideLimit} slides each`,
-          },
+        
           core: [
-            pkg.hasHashtagSuggestions && 'Hashtag Suggestions',
-            pkg.hasScheduling && 'Post Scheduling',
+            pkg.viralPostGeneration && 'Viral Post Generation',
+            pkg.aiStudio && 'AI Studio',
+            pkg.postIdeaGenerator && 'Post Idea Generator',
           ].filter(Boolean),
           additional: Object.entries(pkg.additionalFeatures || {})
             .filter(([_, value]) => value === true)
@@ -670,9 +653,9 @@ export class SubscriptionService {
         monthlyWordLimit: package_.monthlyWordLimit,
         linkedInAccountLimit: package_.linkedInAccountLimit,
         linkedInPostLimit: package_.linkedInPostLimit,
-        carouselLimit: package_.carouselLimit,
-        aiWriting: package_.aiWriting,
-        hasScheduling: package_.hasScheduling,
+        viralPostGeneration: package_.viralPostGeneration,
+        aiStudio: package_.aiStudio,
+        postIdeaGenerator: package_.postIdeaGenerator,
         billingCycle: subscriptionData.variant_name.toLowerCase().includes('yearly') 
           ? 'yearly' 
           : 'monthly',

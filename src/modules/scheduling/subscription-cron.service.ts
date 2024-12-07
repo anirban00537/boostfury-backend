@@ -105,16 +105,13 @@ export class SubscriptionCronService {
 
       const subscriptionsToReset = await this.prisma.subscription.updateMany({
         where: {
-          nextCarouselResetDate: {
+          nextPostResetDate: {
             lt: now,
           },
           status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
         },
         data: {
-          carouselsGenerated: 0,
-          nextCarouselResetDate: {
-            set: new Date(now.getFullYear(), now.getMonth() + 1, 1), // First day of next month
-          },
+         
         },
       });
 

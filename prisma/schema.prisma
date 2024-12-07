@@ -170,14 +170,10 @@ model Package {
   linkedInImageLimit   Int @default(4) // Images per post
   linkedInVideoLimit   Int @default(1) // Videos per post
 
-  // Carousel Limits
-  carouselLimit      Int @default(10) // Monthly carousel generations
-  carouselSlideLimit Int @default(8) // Slides per carousel
-
-  // AI Features
-  hasHashtagSuggestions Boolean @default(false)
-  aiWriting             Boolean @default(false)
-  hasScheduling         Boolean @default(false)
+  // Feature Access
+  viralPostGeneration Boolean @default(true)
+  aiStudio            Boolean @default(false)
+  postIdeaGenerator   Boolean @default(false)
 
   // Future Features (JSON for very new or experimental features)
   additionalFeatures Json? // For beta/new features before making them columns
@@ -227,20 +223,15 @@ model Subscription {
   // LinkedIn Usage Tracking
   linkedInAccountLimit Int      @default(1)
   linkedInAccountsUsed Int      @default(0)
-  linkedInPostLimit    Int      @default(30)
+  linkedInPostLimit    Int      @default(-1)
   linkedInPostsUsed    Int      @default(0)
   lastPostResetDate    DateTime @default(now())
   nextPostResetDate    DateTime
 
-  // Carousel Usage Tracking
-  carouselLimit         Int      @default(10)
-  carouselsGenerated    Int      @default(0)
-  lastCarouselResetDate DateTime @default(now())
-  nextCarouselResetDate DateTime
-
   // Feature Access (inherited from package but can be overridden)
-  aiWriting     Boolean @default(false)
-  hasScheduling Boolean @default(false)
+  viralPostGeneration Boolean @default(true)
+  aiStudio            Boolean @default(false)
+  postIdeaGenerator   Boolean @default(false)
 
   // Billing Information
   billingCycle String? // "monthly" | "yearly" | "lifetime"
@@ -338,21 +329,21 @@ model PostTimeSlot {
   id          String    @id @default(cuid())
   workspaceId String    @unique
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  
+
   // Preferred posting times for each day
-  monday    Json[]  // Array of time strings ["09:00", "15:00", "18:00"]
+  monday    Json[] // Array of time strings ["09:00", "15:00", "18:00"]
   tuesday   Json[]
   wednesday Json[]
   thursday  Json[]
   friday    Json[]
   saturday  Json[]
   sunday    Json[]
-  
+
   // Queue settings
-  postsPerDay     Int     @default(2)
-  minTimeGap      Int     @default(120)  // Minimum minutes between posts
-  isEnabled       Boolean @default(true)
-  
+  postsPerDay Int     @default(2)
+  minTimeGap  Int     @default(120) // Minimum minutes between posts
+  isEnabled   Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -360,15 +351,15 @@ model PostTimeSlot {
 }
 
 model QueuedPost {
-  id          String       @id @default(cuid())
-  workspaceId String
-  workspace   Workspace    @relation(fields: [workspaceId], references: [id])
-  postId      String      @unique
-  post        LinkedInPost @relation(fields: [postId], references: [id])
-  queueOrder  Int         // Position in queue
-  scheduledFor DateTime?   // Calculated scheduled time
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id           String       @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id])
+  postId       String       @unique
+  post         LinkedInPost @relation(fields: [postId], references: [id])
+  queueOrder   Int // Position in queue
+  scheduledFor DateTime? // Calculated scheduled time
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   @@index([workspaceId])
   @@index([postId])

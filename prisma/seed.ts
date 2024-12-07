@@ -5,7 +5,7 @@ const prisma = new PrismaClient({ log: ['query'] });
 
 async function main() {
   console.log('Starting database cleanup...');
-  
+
   // Delete all existing data in reverse order of dependencies
   await prisma.wordTokenLog.deleteMany({});
   await prisma.postLog.deleteMany({});
@@ -45,14 +45,10 @@ async function main() {
       linkedInImageLimit: 2,
       linkedInVideoLimit: 0,
 
-      // Carousel Limits
-      carouselLimit: 3,
-      carouselSlideLimit: 6,
-
       // Features
-      hasHashtagSuggestions: true,
-      aiWriting: true,
-      hasScheduling: true,
+      viralPostGeneration: true,
+      aiStudio: true,
+      postIdeaGenerator: true,
     },
   });
 
@@ -78,14 +74,10 @@ async function main() {
       linkedInImageLimit: 4,
       linkedInVideoLimit: 1,
 
-      // Carousel Limits
-      carouselLimit: 15,
-      carouselSlideLimit: 8,
-
       // Features
-      hasHashtagSuggestions: true,
-      aiWriting: true,
-      hasScheduling: true,
+      viralPostGeneration: true,
+      aiStudio: true,
+      postIdeaGenerator: true,
     },
   });
 
@@ -111,14 +103,10 @@ async function main() {
       linkedInImageLimit: 8,
       linkedInVideoLimit: 2,
 
-      // Carousel Limits
-      carouselLimit: 50,
-      carouselSlideLimit: 12,
-
       // Features
-      hasHashtagSuggestions: true,
-      aiWriting: true,
-      hasScheduling: true,
+      viralPostGeneration: true,
+      aiStudio: true,
+      postIdeaGenerator: true,
 
       // Additional Features
       additionalFeatures: {
@@ -150,14 +138,10 @@ async function main() {
       linkedInImageLimit: 8,
       linkedInVideoLimit: 2,
 
-      // Carousel Limits
-      carouselLimit: 50,
-      carouselSlideLimit: 12,
-
       // Features
-      hasHashtagSuggestions: true,
-      aiWriting: true,
-      hasScheduling: true,
+      viralPostGeneration: true,
+      aiStudio: true,
+      postIdeaGenerator: true,
 
       // Additional Features
       additionalFeatures: {

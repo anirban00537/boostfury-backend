@@ -220,7 +220,6 @@ export class AdminService {
         monthlyWordLimit: true,
         wordsGenerated: true,
         linkedInPostsUsed: true,
-        carouselsGenerated: true,
         status: true,
         endDate: true,
         user: {
