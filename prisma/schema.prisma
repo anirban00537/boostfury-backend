@@ -149,35 +149,39 @@ model Package {
   id String @id @default(cuid())
 
   // Basic Package Info
-  name        String // e.g., "Pro Plan", "Business Plan"
+  name        String
   description String
   type        String // "monthly" | "yearly" | "lifetime"
-  status      String @default("active") // "active" | "inactive" | "deprecated"
+  status      String  @default("active") // "active" | "inactive" | "deprecated"
+  featured    Boolean @default(false) // New: Featured package flag
 
   // Pricing
   price    Float
   currency String @default("USD")
 
-  // Lemon Squeezy Integration
-  variantId String @unique // Lemon Squeezy variant ID
-  productId String // Lemon Squeezy product ID
+  // Paddle Integration
+  variantId String @unique // Paddle price ID
+  productId String // Paddle product ID
+
+  // Features
+  features Json? // New: Array of feature strings
 
   // Word Generation Limits
-  monthlyWordLimit Int // Monthly word generation limit
+  monthlyWordLimit Int
 
   // LinkedIn Limits
-  linkedInAccountLimit Int @default(1) // Number of LinkedIn accounts allowed
-  linkedInPostLimit    Int @default(30) // Monthly LinkedIn posts allowed
-  linkedInImageLimit   Int @default(4) // Images per post
-  linkedInVideoLimit   Int @default(1) // Videos per post
+  linkedInAccountLimit Int @default(1)
+  linkedInPostLimit    Int @default(30)
+  linkedInImageLimit   Int @default(4)
+  linkedInVideoLimit   Int @default(1)
 
   // Feature Access
   viralPostGeneration Boolean @default(true)
   aiStudio            Boolean @default(false)
   postIdeaGenerator   Boolean @default(false)
 
-  // Future Features (JSON for very new or experimental features)
-  additionalFeatures Json? // For beta/new features before making them columns
+  // Future Features
+  additionalFeatures Json? // For beta/new features
 
   // Timestamps
   createdAt DateTime @default(now())

@@ -9,6 +9,7 @@ async function main() {
   // Delete all existing data in reverse order of dependencies
   await prisma.wordTokenLog.deleteMany({});
   await prisma.postLog.deleteMany({});
+  await prisma.queuedPost.deleteMany({});
   await prisma.linkedInPost.deleteMany({});
   await prisma.linkedInProfile.deleteMany({});
   await prisma.carousel.deleteMany({});
@@ -62,8 +63,8 @@ async function main() {
       status: 'active',
       price: 19,
       currency: 'USD',
-      variantId: '525068',
-      productId: '354443',
+      variantId: 'pri_01jeh3nyba849cqc2yvb1ha8a7',
+      productId: 'starter_' + Date.now(),
 
       // Word Generation Limits
       monthlyWordLimit: 100000,
@@ -80,80 +81,6 @@ async function main() {
       postIdeaGenerator: true,
     },
   });
-
-  // Create Pro Package
-  await prisma.package.create({
-    data: {
-      id: 'pro',
-      name: 'Pro',
-      description: 'For power users and teams who need more',
-      type: 'monthly',
-      status: 'active',
-      price: 49.99,
-      currency: 'USD',
-      variantId: '585057',
-      productId: '385992',
-
-      // Word Generation Limits
-      monthlyWordLimit: 200000,
-
-      // LinkedIn Limits
-      linkedInAccountLimit: 5,
-      linkedInPostLimit: 200,
-      linkedInImageLimit: 8,
-      linkedInVideoLimit: 2,
-
-      // Features
-      viralPostGeneration: true,
-      aiStudio: true,
-      postIdeaGenerator: true,
-
-      // Additional Features
-      additionalFeatures: {
-        prioritySupport: true,
-        advancedAnalytics: true,
-        customBranding: true,
-      },
-    },
-  });
-
-  // Create Annual Pro Package (20% discount)
-  await prisma.package.create({
-    data: {
-      name: 'Pro Annual',
-      description: 'Save 20% with annual billing',
-      type: 'yearly',
-      status: 'active',
-      price: 479.9, // 49.99 * 12 * 0.8 (20% discount)
-      currency: 'USD',
-      variantId: 'pro_yearly',
-      productId: 'pro',
-
-      // Word Generation Limits
-      monthlyWordLimit: 100000,
-
-      // LinkedIn Limits
-      linkedInAccountLimit: 5,
-      linkedInPostLimit: 200,
-      linkedInImageLimit: 8,
-      linkedInVideoLimit: 2,
-
-      // Features
-      viralPostGeneration: true,
-      aiStudio: true,
-      postIdeaGenerator: true,
-
-      // Additional Features
-      additionalFeatures: {
-        prioritySupport: true,
-        advancedAnalytics: true,
-        customBranding: true,
-        priorityQueue: true,
-      },
-    },
-  });
-
-  console.log('Seed completed successfully');
 }
 
 main()
