@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+  Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import { IS_SUBSCRIBED_KEY } from '../decorators/is-subscribed.decorator';
@@ -14,10 +20,10 @@ export class SubscriptionGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isSubscribed = this.reflector.getAllAndOverride<boolean>(IS_SUBSCRIBED_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const isSubscribed = this.reflector.getAllAndOverride<boolean>(
+      IS_SUBSCRIBED_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!isSubscribed) {
       return true;
@@ -35,6 +41,7 @@ export class SubscriptionGuard implements CanActivate {
         where: { userId: user.id },
         include: { package: true },
       });
+      console.log(subscription.status, 'subscription.status');
 
       if (!subscription) {
         throw new UnauthorizedException('No active subscription found');
@@ -44,7 +51,9 @@ export class SubscriptionGuard implements CanActivate {
 
       // Check if subscription is expired
       if (subscription.status === coreConstant.SUBSCRIPTION_STATUS.EXPIRED) {
-        throw new UnauthorizedException('Subscription has expired. Please renew to continue.');
+        throw new UnauthorizedException(
+          'Subscription has expired. Please renew to continue.',
+        );
       }
 
       // Check regular subscription
@@ -53,36 +62,46 @@ export class SubscriptionGuard implements CanActivate {
           // Update subscription status to expired
           await this.prisma.subscription.update({
             where: { id: subscription.id },
-            data: { status: coreConstant.SUBSCRIPTION_STATUS.EXPIRED }
+            data: { status: coreConstant.SUBSCRIPTION_STATUS.EXPIRED },
           });
-          throw new UnauthorizedException('Subscription has expired. Please renew to continue.');
+          throw new UnauthorizedException(
+            'Subscription has expired. Please renew to continue.',
+          );
         }
 
         if (subscription.package.status !== 'active') {
-          throw new UnauthorizedException('Package is no longer available. Please contact support.');
+          throw new UnauthorizedException(
+            'Package is no longer available. Please contact support.',
+          );
         }
 
         return true;
       }
-
       // Handle other subscription statuses
       switch (subscription.status) {
         case coreConstant.SUBSCRIPTION_STATUS.EXPIRED:
-          throw new UnauthorizedException('Subscription has expired. Please renew to continue.');
+          throw new UnauthorizedException(
+            'Subscription has expired. Please renew to continue.',
+          );
         case coreConstant.SUBSCRIPTION_STATUS.CANCELLED:
-          throw new UnauthorizedException('Subscription has been cancelled. Please subscribe to continue.');
+          throw new UnauthorizedException(
+            'Subscription has been cancelled. Please subscribe to continue.',
+          );
         default:
           throw new UnauthorizedException('Invalid subscription status');
       }
-
     } catch (error) {
-      this.logger.error(`Subscription check failed for user ${user.id}:`, error);
-      
+      this.logger.error(
+        `Subscription check failed for user ${user.id}:`,
+        error,
+      );
+
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      
+      console.log(error, 'error');
+
       throw new UnauthorizedException('Error checking subscription status');
     }
   }
-} 
+}

@@ -15,7 +15,9 @@ import { Reflector } from '@nestjs/core';
 import * as bodyParser from 'body-parser';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
   const configService = app.get(ConfigService);
   setApp(app);
   app.setGlobalPrefix(API_PREFIX);
@@ -53,15 +55,18 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
-  // Add raw body parser for Paddle webhooks
-  app.use(express.raw({ 
-    type: 'application/json',
-    verify: (req: any, res: any, buffer: Buffer) => {
-      if (req.headers['paddle-signature']) {
-        req.rawBody = buffer;
+  // Store raw body for webhook requests that require signature verification
+  const rawBodyBuffer = (req, res, buffer, encoding) => {
+    // Check for either Paddle signature or existing x-signature
+    if (req.headers['paddle-signature'] || req.headers['x-signature']) {
+      if (buffer && buffer.length) {
+        req.rawBody = buffer.toString(encoding || 'utf8');
       }
     }
-  }));
+  };
+
+  app.use(bodyParser.urlencoded({ verify: rawBodyBuffer, extended: true }));
+  app.use(bodyParser.json({ verify: rawBodyBuffer }));
 
   // If you need to increase the body size limit
   app.use(bodyParser.json({ limit: '10mb' }));
