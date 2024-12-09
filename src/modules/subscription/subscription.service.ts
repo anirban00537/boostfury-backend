@@ -328,8 +328,11 @@ export class SubscriptionService {
       const nextResetDate = new Date(startDate);
       nextResetDate.setMonth(nextResetDate.getMonth() + 1);
 
-      const subscription = await this.prisma.subscription.create({
-        data: {
+      const subscription = await this.prisma.subscription.upsert({
+        where: {
+          userId,
+        },
+        create: {
           userId,
           packageId,
           orderId: evt.data.id,
@@ -351,6 +354,27 @@ export class SubscriptionService {
           wordsGenerated: 0,
           linkedInAccountsUsed: 0,
           linkedInPostsUsed: 0,
+          isTrial: false,
+        },
+        update: {
+          packageId,
+          orderId: evt.data.id,
+          status: isSuccessful ? 'active' : 'pending',
+          startDate,
+          endDate,
+          nextWordResetDate: nextResetDate,
+          nextPostResetDate: nextResetDate,
+          monthlyWordLimit: package_.monthlyWordLimit,
+          linkedInAccountLimit: package_.linkedInAccountLimit,
+          linkedInPostLimit: package_.linkedInPostLimit,
+          viralPostGeneration: package_.viralPostGeneration,
+          aiStudio: package_.aiStudio,
+          postIdeaGenerator: package_.postIdeaGenerator,
+          billingCycle:
+            subscriptionLengthInMonths === 12 ? 'yearly' : 'monthly',
+          currency: evt.data.attributes.currency,
+          renewalPrice: parseFloat(evt.data.attributes.total),
+          isTrial: false,
         },
       });
       console.log(subscription, 'subscription created');
