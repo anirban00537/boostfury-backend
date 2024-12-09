@@ -635,6 +635,7 @@ export class SubscriptionService {
       const customData = evt.meta.custom_data || {};
       const userId = customData.userId;
       const packageId = customData.packageId;
+      console.log(evt.data.id,"evtssssssssssssssssssssssssss")
 
       console.log('\nSubscription Data:', {
         userId,
@@ -665,6 +666,7 @@ export class SubscriptionService {
       });
 
       const subscriptionData = evt.data.attributes;
+      const subscriptionId = evt.data.id;
       const startDate = new Date(subscriptionData.created_at);
       const renewalDate = new Date(subscriptionData.renews_at);
       const nextResetDate = new Date(startDate);
@@ -690,7 +692,7 @@ export class SubscriptionService {
         linkedInAccountsUsed: 0,
         linkedInPostsUsed: 0,
         isTrial: false,
-        subscriptionId: subscriptionData.id, // Save subscription_id here
+        subscriptionId: subscriptionId, // Save subscription_id here
       };
 
       let subscription;
