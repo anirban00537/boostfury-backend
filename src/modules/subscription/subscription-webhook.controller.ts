@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Post,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Post, HttpException, HttpStatus } from '@nestjs/common';
 import { Public } from 'src/shared/decorators/public.decorator';
 import { SubscriptionService } from './subscription.service';
 import { LemonSqueezyRequest } from './dto/lemon-squeezy-request.decorator';
@@ -33,6 +28,10 @@ export class SubscriptionWebhookController {
         case 'subscription_cancelled':
           console.log('Processing subscription_cancelled event');
           await this.subscriptionService.handleSubscriptionCancelled(evt);
+          break;
+        case 'subscription_expired':
+          console.log('Processing subscription_expired event');
+          await this.subscriptionService.handleSubscriptionExpired(evt);
           break;
         default:
           console.warn(`⚠️ Unhandled event type: ${evt.meta.event_name}`);

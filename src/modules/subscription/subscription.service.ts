@@ -28,7 +28,8 @@ export class SubscriptionService {
         include: { package: true },
       });
 
-      const isActive = subscription?.status === coreConstant.SUBSCRIPTION_STATUS.ACTIVE;
+      const isActive =
+        subscription?.status === coreConstant.SUBSCRIPTION_STATUS.ACTIVE;
 
       // Get usage data for different features
       const usageData = {
@@ -44,7 +45,6 @@ export class SubscriptionService {
           postsLimit: subscription?.linkedInPostLimit || 0,
           nextReset: subscription?.nextPostResetDate,
         },
-       
       };
 
       return successResponse('Subscription status retrieved', {
@@ -62,7 +62,7 @@ export class SubscriptionService {
                     type: subscription.package.type,
                   }
                 : null,
-                subscriptionId: subscription.subscriptionId,
+              subscriptionId: subscription.subscriptionId,
               features: {
                 viralPostGeneration: subscription.package.viralPostGeneration,
                 aiStudio: subscription.package.aiStudio,
@@ -272,7 +272,6 @@ export class SubscriptionService {
             postsUsed: sub.linkedInPostsUsed,
             postsLimit: sub.linkedInPostLimit,
           },
-         
         },
         daysRemaining: Math.ceil(
           (sub.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
@@ -488,7 +487,7 @@ export class SubscriptionService {
               videos: pkg.linkedInVideoLimit,
             },
           },
-        
+
           core: [
             pkg.viralPostGeneration && 'Viral Post Generation',
             pkg.aiStudio && 'AI Studio',
@@ -531,7 +530,7 @@ export class SubscriptionService {
       const customData = evt.meta.custom_data || {};
       const userId = customData.userId;
       const packageId = customData.packageId;
-      console.log(evt.data.id,"evtssssssssssssssssssssssssss")
+      console.log(evt.data.id, 'evtssssssssssssssssssssssssss');
 
       console.log('\nSubscription Data:', {
         userId,
@@ -583,7 +582,8 @@ export class SubscriptionService {
         postIdeaGenerator: package_.postIdeaGenerator,
         billingCycle: package_.type,
         currency: 'USD',
-        renewalPrice: parseFloat(subscriptionData.first_subscription_item?.price_id) || 0,
+        renewalPrice:
+          parseFloat(subscriptionData.first_subscription_item?.price_id) || 0,
         wordsGenerated: 0,
         linkedInAccountsUsed: 0,
         linkedInPostsUsed: 0,
@@ -592,31 +592,34 @@ export class SubscriptionService {
       };
 
       let subscription;
-      
+
       if (existingSubscription) {
-        console.log('\nUpdating existing subscription:', existingSubscription.id);
-        
+        console.log(
+          '\nUpdating existing subscription:',
+          existingSubscription.id,
+        );
+
         subscription = await this.prisma.subscription.update({
           where: { id: existingSubscription.id },
           data: {
             ...subscriptionDetails,
             package: {
-              connect: { id: packageId }
-            }
+              connect: { id: packageId },
+            },
           },
         });
       } else {
         console.log('\nCreating new subscription');
-        
+
         subscription = await this.prisma.subscription.create({
           data: {
             ...subscriptionDetails,
             user: {
-              connect: { id: userId }
+              connect: { id: userId },
             },
             package: {
-              connect: { id: packageId }
-            }
+              connect: { id: packageId },
+            },
           },
         });
       }
@@ -629,8 +632,8 @@ export class SubscriptionService {
       });
 
       return successResponse(
-        `Subscription ${existingSubscription ? 'updated' : 'created'} successfully`, 
-        subscription
+        `Subscription ${existingSubscription ? 'updated' : 'created'} successfully`,
+        subscription,
       );
     } catch (error) {
       console.error('\n❌ Error in handleSubscriptionCreated:', {
@@ -641,7 +644,51 @@ export class SubscriptionService {
       return errorResponse(`Failed to process subscription: ${error.message}`);
     }
   }
+  async handleSubscriptionExpired(evt: any): Promise<any> {
+    try {
+      const customData = evt.meta.custom_data || {};
+      const userId = customData.userId;
 
+      if (!userId) {
+        throw new Error('No userId found in custom_data');
+      }
+
+      const subscription = await this.prisma.subscription.findUnique({
+        where: { userId },
+      });
+
+      if (!subscription) {
+        throw new Error('Subscription not found');
+      }
+
+      // Log the event for debugging purposes
+      this.logger.log(`Processing expired subscription for userId: ${userId}`);
+
+      // Update the subscription status to "expired"
+      const updatedSubscription = await this.prisma.subscription.update({
+        where: { userId },
+        data: {
+          status: coreConstant.SUBSCRIPTION_STATUS.EXPIRED,
+          endDate: new Date(),
+        },
+      });
+
+      this.logger.log(
+        `Subscription for userId ${userId} marked as expired successfully`,
+      );
+
+      // Return a success response with the updated subscription
+      return successResponse(
+        'Subscription expired successfully',
+        updatedSubscription,
+      );
+    } catch (error) {
+      this.logger.error('Error handling expired subscription event:', error);
+      return errorResponse(
+        `Failed to process expired subscription: ${error.message}`,
+      );
+    }
+  }
   async cancelSubscription(userId: string): Promise<ResponseModel> {
     try {
       const subscription = await this.prisma.subscription.findUnique({
@@ -656,16 +703,22 @@ export class SubscriptionService {
         return errorResponse('Subscription is already cancelled');
       }
 
-      console.log('Attempting to cancel subscription with ID:', subscription.subscriptionId);
+      console.log(
+        'Attempting to cancel subscription with ID:',
+        subscription.subscriptionId,
+      );
       console.log('Subscription ID:', subscription.subscriptionId);
       // Call Lemon Squeezy API to cancel the subscription
-      const response = await axios.delete(`https://api.lemonsqueezy.com/v1/subscriptions/${subscription.subscriptionId}`, {
-        headers: {
-          'Accept': 'application/vnd.api+json',
-          'Content-Type': 'application/vnd.api+json',
-          'Authorization': `Bearer ${this.apiKey}`,
+      const response = await axios.delete(
+        `https://api.lemonsqueezy.com/v1/subscriptions/${subscription.subscriptionId}`,
+        {
+          headers: {
+            Accept: 'application/vnd.api+json',
+            'Content-Type': 'application/vnd.api+json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
         },
-      });
+      );
 
       console.log('Subscription cancelled:', response.data);
 
