@@ -23,6 +23,7 @@ export const coreConstant = {
     ACTIVE: 'active',
     EXPIRED: 'expired',
     CANCELLED: 'cancelled',
+    PENDING: 'pending',
   },
   WORD_TOKEN_LOG_TYPE: {
     USAGE: 'USAGE',

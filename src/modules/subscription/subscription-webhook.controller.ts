@@ -21,6 +21,10 @@ export class SubscriptionWebhookController {
           console.log('Processing subscription_created event');
           await this.subscriptionService.handleSubscriptionCreated(evt);
           break;
+        case 'subscription_payment_success':
+          console.log('Processing subscription_payment_success event');
+          await this.subscriptionService.handleSubscriptionPaymentSuccess(evt);
+          break;
         case 'subscription_updated':
           console.log('Processing subscription_updated event');
           await this.subscriptionService.handleSubscriptionUpdated(evt);

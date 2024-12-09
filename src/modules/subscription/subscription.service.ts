@@ -525,43 +525,81 @@ export class SubscriptionService {
     }
   }
 
-  async handleSubscriptionCreated(evt: any): Promise<any> {
+  async handleSubscriptionPaymentSuccess(evt: any): Promise<any> {
     try {
-      const customData = evt.meta.custom_data || {};
-      const userId = customData.userId;
-      const packageId = customData.packageId;
-      console.log(evt.data.id, 'evtssssssssssssssssssssssssss');
+      // Extract relevant data from the webhook payload
+      const { userId, packageId } = evt.meta.custom_data || {};
+      const { status, subscription_id, total_usd } = evt.data.attributes;
 
-      console.log('\nSubscription Data:', {
-        userId,
-        packageId,
-        orderId: evt.data.attributes.order_id,
-        status: evt.data.attributes.status,
+      if (!userId || !packageId || !subscription_id) {
+        throw new Error('Missing required data in the event payload');
+      }
+
+      // Log payment event details for debugging
+      this.logger.log(`Received payment success event for userId: ${userId}`);
+      this.logger.log(`Payment status: ${status}, Amount: ${total_usd} USD`);
+
+      // Find the existing subscription based on userId and subscription_id
+      const subscription = await this.prisma.subscription.findUnique({
+        where: { userId },
       });
 
-      // Find the package first
+      if (!subscription) {
+        throw new Error(`Subscription not found for userId: ${userId}`);
+      }
+
+      // Only mark the subscription as active if the payment was successful
+      if (status === 'paid') {
+        const updatedSubscription = await this.prisma.subscription.update({
+          where: { userId },
+          data: {
+            status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
+            subscriptionId: String(subscription_id), // Store subscription_id from payment event
+          },
+        });
+
+        this.logger.log(`Subscription for userId ${userId} marked as active`);
+
+        return successResponse(
+          'Subscription activated successfully',
+          updatedSubscription,
+        );
+      } else {
+        throw new Error(`Payment failed for subscription: ${subscription_id}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        'Error processing subscription payment success:',
+        error,
+      );
+      return errorResponse(
+        `Failed to process payment success: ${error.message}`,
+      );
+    }
+  }
+
+  // Create or update subscription (do not set status to active here)
+  async handleSubscriptionCreated(evt: any): Promise<any> {
+    try {
+      const { userId, packageId } = evt.meta.custom_data || {};
+      if (!userId || !packageId) {
+        throw new Error('Missing userId or packageId in custom data');
+      }
+
+      console.log(evt.data.id, 'Received event data for subscription creation');
+
       const package_ = await this.prisma.package.findUnique({
         where: { id: packageId },
       });
-
       if (!package_) {
-        console.error('❌ Package not found:', packageId);
         throw new Error(`Package not found with ID: ${packageId}`);
       }
 
-      console.log('\nPackage found:', {
-        id: package_.id,
-        name: package_.name,
-        type: package_.type,
-      });
-
-      // Find existing subscription
       const existingSubscription = await this.prisma.subscription.findUnique({
         where: { userId },
       });
 
       const subscriptionData = evt.data.attributes;
-      const subscriptionId = evt.data.id;
       const startDate = new Date(subscriptionData.created_at);
       const renewalDate = new Date(subscriptionData.renews_at);
       const nextResetDate = new Date(startDate);
@@ -569,7 +607,7 @@ export class SubscriptionService {
 
       const subscriptionDetails = {
         orderId: subscriptionData.order_id.toString(),
-        status: subscriptionData.status,
+        status: coreConstant.SUBSCRIPTION_STATUS.PENDING,
         startDate,
         endDate: renewalDate,
         nextWordResetDate: nextResetDate,
@@ -588,59 +626,37 @@ export class SubscriptionService {
         linkedInAccountsUsed: 0,
         linkedInPostsUsed: 0,
         isTrial: false,
-        subscriptionId: subscriptionId, // Save subscription_id here
+        subscriptionId: evt.data.id,
       };
 
       let subscription;
-
       if (existingSubscription) {
-        console.log(
-          '\nUpdating existing subscription:',
-          existingSubscription.id,
-        );
-
+        console.log('Updating existing subscription:', existingSubscription.id);
         subscription = await this.prisma.subscription.update({
           where: { id: existingSubscription.id },
           data: {
             ...subscriptionDetails,
-            package: {
-              connect: { id: packageId },
-            },
+            package: { connect: { id: packageId } },
           },
         });
       } else {
-        console.log('\nCreating new subscription');
-
+        console.log('Creating new subscription');
         subscription = await this.prisma.subscription.create({
           data: {
             ...subscriptionDetails,
-            user: {
-              connect: { id: userId },
-            },
-            package: {
-              connect: { id: packageId },
-            },
+            user: { connect: { id: userId } },
+            package: { connect: { id: packageId } },
           },
         });
       }
 
-      console.log('\n✅ Subscription processed successfully:', {
-        id: subscription.id,
-        userId: subscription.userId,
-        status: subscription.status,
-        endDate: subscription.endDate,
-      });
-
+      console.log('Subscription created with status pending:', subscription.id);
       return successResponse(
         `Subscription ${existingSubscription ? 'updated' : 'created'} successfully`,
         subscription,
       );
     } catch (error) {
-      console.error('\n❌ Error in handleSubscriptionCreated:', {
-        message: error.message,
-        stack: error.stack,
-      });
-      console.error('Event data:', JSON.stringify(evt, null, 2));
+      console.error('Error processing subscription creation:', error);
       return errorResponse(`Failed to process subscription: ${error.message}`);
     }
   }
