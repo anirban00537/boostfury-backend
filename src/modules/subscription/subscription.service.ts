@@ -62,6 +62,7 @@ export class SubscriptionService {
                     type: subscription.package.type,
                   }
                 : null,
+                subscriptionId: subscription.subscriptionId,
               features: {
                 viralPostGeneration: subscription.package.viralPostGeneration,
                 aiStudio: subscription.package.aiStudio,
@@ -142,6 +143,7 @@ export class SubscriptionService {
 
       return checkoutResponse.data.data.attributes.url;
     } catch (error) {
+      console.log('Error response from LemonSqueezy API:', error.response.data);
       throw new HttpException(
         `Failed to create checkout: ${error.response?.data?.errors?.[0]?.detail || error.message}`,
         HttpStatus.BAD_REQUEST,
@@ -756,13 +758,18 @@ export class SubscriptionService {
         return errorResponse('Subscription is already cancelled');
       }
 
+      console.log('Attempting to cancel subscription with ID:', subscription.subscriptionId);
+      console.log('Subscription ID:', subscription.subscriptionId);
       // Call Lemon Squeezy API to cancel the subscription
       const response = await axios.delete(`https://api.lemonsqueezy.com/v1/subscriptions/${subscription.subscriptionId}`, {
         headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.api+json',
+          'Content-Type': 'application/vnd.api+json',
+          'Authorization': `Bearer ${this.apiKey}`,
         },
       });
+
+      console.log('Subscription cancelled:', response.data);
 
       // Update the subscription status in the database
       const updatedSubscription = await this.prisma.subscription.update({
@@ -777,6 +784,7 @@ export class SubscriptionService {
         subscription: updatedSubscription,
       });
     } catch (error) {
+      console.log('Error response from LemonSqueezy API:', error.response.data);
       this.logger.error('Error cancelling subscription:', error);
       return errorResponse(`Failed to cancel subscription: ${error.message}`);
     }

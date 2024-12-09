@@ -49,7 +49,7 @@ export class SubscriptionController {
     return this.subscriptionService.getPricing();
   }
 
-  @Post('cancel')
+  @Post('cancel-subscription')
   async cancelSubscription(@UserInfo() user: User) {
     return this.subscriptionService.cancelSubscription(user.id);
   }
