@@ -355,6 +355,7 @@ export class SubscriptionService {
           linkedInAccountsUsed: 0,
           linkedInPostsUsed: 0,
           isTrial: false,
+          subscriptionId: evt.data.id,
         },
         update: {
           packageId,
@@ -375,6 +376,7 @@ export class SubscriptionService {
           currency: evt.data.attributes.currency,
           renewalPrice: parseFloat(evt.data.attributes.total),
           isTrial: false,
+          subscriptionId: evt.data.id,
         },
       });
       console.log(subscription, 'subscription created');
@@ -686,6 +688,7 @@ export class SubscriptionService {
         linkedInAccountsUsed: 0,
         linkedInPostsUsed: 0,
         isTrial: false,
+        subscriptionId: subscriptionData.id, // Save subscription_id here
       };
 
       let subscription;
@@ -736,6 +739,46 @@ export class SubscriptionService {
       });
       console.error('Event data:', JSON.stringify(evt, null, 2));
       return errorResponse(`Failed to process subscription: ${error.message}`);
+    }
+  }
+
+  async cancelSubscription(userId: string): Promise<ResponseModel> {
+    try {
+      const subscription = await this.prisma.subscription.findUnique({
+        where: { userId },
+      });
+
+      if (!subscription) {
+        return errorResponse('No active subscription found');
+      }
+
+      if (subscription.status === 'cancelled') {
+        return errorResponse('Subscription is already cancelled');
+      }
+
+      // Call Lemon Squeezy API to cancel the subscription
+      const response = await axios.delete(`https://api.lemonsqueezy.com/v1/subscriptions/${subscription.subscriptionId}`, {
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      // Update the subscription status in the database
+      const updatedSubscription = await this.prisma.subscription.update({
+        where: { userId },
+        data: {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+        },
+      });
+
+      return successResponse('Subscription cancelled successfully', {
+        subscription: updatedSubscription,
+      });
+    } catch (error) {
+      this.logger.error('Error cancelling subscription:', error);
+      return errorResponse(`Failed to cancel subscription: ${error.message}`);
     }
   }
 }

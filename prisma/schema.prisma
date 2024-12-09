@@ -220,6 +220,8 @@ model Subscription {
   lastWordResetDate   DateTime @default(now())
   nextWordResetDate   DateTime // For monthly reset planning
 
+  subscriptionId      String?
+
   // LinkedIn Usage Tracking
   linkedInAccountLimit Int      @default(1)
   linkedInAccountsUsed Int      @default(0)
