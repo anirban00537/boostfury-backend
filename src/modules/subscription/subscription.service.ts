@@ -649,22 +649,18 @@ export class SubscriptionService {
         endDate: renewalDate,
         nextWordResetDate: nextResetDate,
         nextPostResetDate: nextResetDate,
-        nextCarouselResetDate: nextResetDate,
         monthlyWordLimit: package_.monthlyWordLimit,
         linkedInAccountLimit: package_.linkedInAccountLimit,
         linkedInPostLimit: package_.linkedInPostLimit,
         viralPostGeneration: package_.viralPostGeneration,
         aiStudio: package_.aiStudio,
         postIdeaGenerator: package_.postIdeaGenerator,
-        billingCycle: subscriptionData.variant_name.toLowerCase().includes('yearly') 
-          ? 'yearly' 
-          : 'monthly',
+        billingCycle: package_.type,
         currency: 'USD',
         renewalPrice: parseFloat(subscriptionData.first_subscription_item?.price_id) || 0,
         wordsGenerated: 0,
         linkedInAccountsUsed: 0,
         linkedInPostsUsed: 0,
-        carouselsGenerated: 0,
         isTrial: false,
       };
 

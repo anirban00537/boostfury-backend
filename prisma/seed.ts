@@ -62,8 +62,8 @@ async function main() {
       status: 'active',
       price: 19,
       currency: 'USD',
-      variantId: '525068',
-      productId: '354443',
+      variantId: '625852',
+      productId: '409704',
 
       // Word Generation Limits
       monthlyWordLimit: 100000,
@@ -91,8 +91,8 @@ async function main() {
       status: 'active',
       price: 49.99,
       currency: 'USD',
-      variantId: '585057',
-      productId: '385992',
+      variantId: '625851',
+      productId: '409703',
 
       // Word Generation Limits
       monthlyWordLimit: 200000,
@@ -117,41 +117,7 @@ async function main() {
     },
   });
 
-  // Create Annual Pro Package (20% discount)
-  await prisma.package.create({
-    data: {
-      name: 'Pro Annual',
-      description: 'Save 20% with annual billing',
-      type: 'yearly',
-      status: 'active',
-      price: 479.9, // 49.99 * 12 * 0.8 (20% discount)
-      currency: 'USD',
-      variantId: 'pro_yearly',
-      productId: 'pro',
 
-      // Word Generation Limits
-      monthlyWordLimit: 100000,
-
-      // LinkedIn Limits
-      linkedInAccountLimit: 5,
-      linkedInPostLimit: 200,
-      linkedInImageLimit: 8,
-      linkedInVideoLimit: 2,
-
-      // Features
-      viralPostGeneration: true,
-      aiStudio: true,
-      postIdeaGenerator: true,
-
-      // Additional Features
-      additionalFeatures: {
-        prioritySupport: true,
-        advancedAnalytics: true,
-        customBranding: true,
-        priorityQueue: true,
-      },
-    },
-  });
 
   console.log('Seed completed successfully');
 }
