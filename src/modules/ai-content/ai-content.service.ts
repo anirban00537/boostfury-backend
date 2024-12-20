@@ -398,19 +398,24 @@ export class AiContentService {
         return errorResponse('Workspace AI voice not configured');
       }
 
-      // Generate content
-      const content = await this.openAIService.generateContentIdeasForWorkspace(
-        workspace.personalAiVoice,
-      );
+      let ideas = [];
+      let content = '';
+
+      // Ensure at least 4 ideas are generated
+      while (ideas.length < 4) {
+        // Generate content
+        content = await this.openAIService.generateContentIdeasForWorkspace(
+          workspace.personalAiVoice,
+        );
+        // Parse ideas
+        ideas = this.openAIService.parseContentIdeas(content);
+      }
 
       // Deduct tokens and get updated counts
       const tokenDeduction = await this.checkAndDeductTokens(userId, content);
       if (!tokenDeduction.isValid) {
         return errorResponse(this.getErrorMessage(tokenDeduction.message));
       }
-
-      // Parse ideas
-      const ideas = this.openAIService.parseContentIdeas(content);
 
       // Get final token count after deduction
       const finalTokenCount = await this.prisma.subscription.findUnique({
