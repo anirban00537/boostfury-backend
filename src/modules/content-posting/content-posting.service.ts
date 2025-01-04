@@ -30,10 +30,15 @@ export class ContentPostingService {
 
   async getPosts(
     userInfo: User,
-    query: GetPostsQueryDto,
+    query: {
+      page?: number;
+      pageSize?: number;
+      linkedInProfileId?: string;
+      status?: number;
+    },
   ): Promise<ResponseModel> {
     try {
-      const { page = 1, pageSize = 10, workspace_id, status } = query;
+      const { page = 1, pageSize = 10, linkedInProfileId, status } = query;
 
       // Build where clause
       const where: any = {
@@ -49,8 +54,8 @@ export class ContentPostingService {
       };
 
       // Add optional filters
-      if (workspace_id) {
-        where.workspaceId = workspace_id;
+      if (linkedInProfileId) {
+        where.linkedInProfileId = linkedInProfileId;
       }
 
       // Define pagination options
@@ -64,7 +69,6 @@ export class ContentPostingService {
 
       // Define include relations
       const include = {
-        workspace: true,
         linkedInProfile: true,
         postLogs: {
           orderBy: {
@@ -141,7 +145,6 @@ export class ContentPostingService {
           },
         },
         include: {
-          workspace: true,
           linkedInProfile: true,
           images: true,
           postLogs: {
@@ -207,30 +210,20 @@ export class ContentPostingService {
         );
       }
 
-      // Verify workspace exists and belongs to user
-      const workspace = await this.prisma.workspace.findFirst({
+      // Verify LinkedIn profile exists and belongs to user
+      if (!createOrUpdateDraftPostDto.linkedInProfileId) {
+        return errorResponse('LinkedIn profile ID is required');
+      }
+
+      const linkedInProfile = await this.prisma.linkedInProfile.findFirst({
         where: {
-          id: createOrUpdateDraftPostDto.workspaceId,
+          id: createOrUpdateDraftPostDto.linkedInProfileId,
           userId: userId,
         },
       });
 
-      if (!workspace) {
-        return errorResponse('Workspace not found');
-      }
-
-      // Verify LinkedIn profile exists and belongs to user
-      if (createOrUpdateDraftPostDto.linkedInProfileId) {
-        const linkedInProfile = await this.prisma.linkedInProfile.findFirst({
-          where: {
-            id: createOrUpdateDraftPostDto.linkedInProfileId,
-            userId: userId,
-          },
-        });
-
-        if (!linkedInProfile) {
-          return errorResponse('LinkedIn profile not found');
-        }
+      if (!linkedInProfile) {
+        return errorResponse('LinkedIn profile not found');
       }
 
       const postData = {
@@ -244,7 +237,6 @@ export class ContentPostingService {
         videoTitle: createOrUpdateDraftPostDto.videoTitle,
         status: coreConstant.POST_STATUS.DRAFT,
         userId,
-        workspaceId: createOrUpdateDraftPostDto.workspaceId,
         linkedInProfileId: createOrUpdateDraftPostDto.linkedInProfileId,
       };
 
@@ -274,9 +266,19 @@ export class ContentPostingService {
           where: { id: createOrUpdateDraftPostDto.id },
           data: postData,
           include: {
-            workspace: true,
             linkedInProfile: true,
             postLogs: true,
+            images: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                first_name: true,
+                last_name: true,
+                user_name: true,
+                photo: true,
+              },
+            },
           },
         });
         console.log('draftPost', draftPost);
@@ -287,9 +289,19 @@ export class ContentPostingService {
         draftPost = await this.prisma.linkedInPost.create({
           data: postData,
           include: {
-            workspace: true,
             linkedInProfile: true,
             postLogs: true,
+            images: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                first_name: true,
+                last_name: true,
+                user_name: true,
+                photo: true,
+              },
+            },
           },
         });
 
@@ -331,6 +343,22 @@ export class ContentPostingService {
         include: {
           linkedInProfile: true,
           images: true,
+          postLogs: {
+            orderBy: {
+              createdAt: 'desc',
+            },
+            take: 1,
+          },
+          user: {
+            select: {
+              id: true,
+              email: true,
+              first_name: true,
+              last_name: true,
+              user_name: true,
+              photo: true,
+            },
+          },
         },
       });
 
@@ -429,13 +457,23 @@ export class ContentPostingService {
               publishedId: linkedInResponse.postId,
             },
             include: {
-              workspace: true,
               linkedInProfile: true,
               postLogs: {
                 orderBy: {
                   createdAt: 'desc',
                 },
                 take: 1,
+              },
+              images: true,
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  first_name: true,
+                  last_name: true,
+                  user_name: true,
+                  photo: true,
+                },
               },
             },
           });
@@ -525,7 +563,6 @@ export class ContentPostingService {
             scheduledTime: scheduledDate,
           },
           include: {
-            workspace: true,
             linkedInProfile: true,
             postLogs: {
               orderBy: {
@@ -757,11 +794,11 @@ export class ContentPostingService {
     query: {
       page?: number;
       pageSize?: number;
-      workspace_id?: string;
+      linkedInProfileId?: string;
     },
   ): Promise<ResponseModel> {
     try {
-      const { page = 1, pageSize = 10, workspace_id } = query;
+      const { page = 1, pageSize = 10, linkedInProfileId } = query;
 
       // Build where clause for scheduled posts
       const where: any = {
@@ -773,8 +810,8 @@ export class ContentPostingService {
       };
 
       // Add optional workspace filter
-      if (workspace_id) {
-        where.workspaceId = workspace_id;
+      if (linkedInProfileId) {
+        where.linkedInProfileId = linkedInProfileId;
       }
 
       // Define pagination options
@@ -862,20 +899,20 @@ export class ContentPostingService {
 
   async createAndUpdateTimeSlots(
     userId: string,
-    workspaceId: string,
+    linkedInProfileId: string,
     timeSlotGroups: TimeSlotGroup[],
   ): Promise<ResponseModel> {
     try {
-      // Verify workspace belongs to user
-      const workspace = await this.prisma.workspace.findFirst({
+      // Verify LinkedIn profile belongs to user
+      const linkedInProfile = await this.prisma.linkedInProfile.findFirst({
         where: {
-          id: workspaceId,
+          id: linkedInProfileId,
           userId,
         },
       });
 
-      if (!workspace) {
-        return errorResponse('Workspace not found');
+      if (!linkedInProfile) {
+        return errorResponse('LinkedIn profile not found');
       }
 
       // Validate time format for all slots
@@ -939,10 +976,10 @@ export class ContentPostingService {
       // Upsert the time slots record
       const result = await this.prisma.postTimeSlot.upsert({
         where: {
-          workspaceId,
+          linkedInProfileId,
         },
         create: {
-          workspaceId,
+          linkedInProfileId,
           ...updateData,
         },
         update: updateData,
@@ -965,23 +1002,23 @@ export class ContentPostingService {
 
   async getTimeSlots(
     userId: string,
-    workspaceId: string,
+    linkedInProfileId: string,
   ): Promise<ResponseModel> {
     try {
-      // Verify workspace belongs to user
-      const workspace = await this.prisma.workspace.findFirst({
+      // Verify LinkedIn profile belongs to user
+      const linkedInProfile = await this.prisma.linkedInProfile.findFirst({
         where: {
-          id: workspaceId,
+          id: linkedInProfileId,
           userId,
         },
       });
 
-      if (!workspace) {
-        return errorResponse('Workspace not found');
+      if (!linkedInProfile) {
+        return errorResponse('LinkedIn profile not found');
       }
 
       const timeSlotRecord = await this.prisma.postTimeSlot.findUnique({
-        where: { workspaceId },
+        where: { linkedInProfileId },
       });
 
       if (!timeSlotRecord) {
@@ -1040,24 +1077,24 @@ export class ContentPostingService {
 
   async getNextAvailableTimeSlot(
     userId: string,
-    workspaceId: string,
+    linkedInProfileId: string,
     fromDate: Date = new Date(),
   ): Promise<Date | null> {
     try {
-      // Verify workspace belongs to user
-      const workspace = await this.prisma.workspace.findFirst({
+      // Verify LinkedIn profile belongs to user
+      const linkedInProfile = await this.prisma.linkedInProfile.findFirst({
         where: {
-          id: workspaceId,
+          id: linkedInProfileId,
           userId,
         },
       });
 
-      if (!workspace) {
+      if (!linkedInProfile) {
         return null;
       }
 
       const timeSlotRecord = await this.prisma.postTimeSlot.findUnique({
-        where: { workspaceId },
+        where: { linkedInProfileId },
       });
 
       if (!timeSlotRecord) {
@@ -1126,7 +1163,7 @@ export class ContentPostingService {
           userId,
           status: coreConstant.POST_STATUS.DRAFT,
         },
-        include: { workspace: true },
+        include: { linkedInProfile: true },
       });
 
       if (!post) {
@@ -1135,16 +1172,16 @@ export class ContentPostingService {
 
       // Get queue settings and current queue
       const timeSlots = await this.prisma.postTimeSlot.findUnique({
-        where: { workspaceId: post.workspaceId },
+        where: { linkedInProfileId: post.linkedInProfileId },
       });
 
       if (!timeSlots?.isEnabled) {
-        return errorResponse('Queue is not enabled for this workspace');
+        return errorResponse('Queue is not enabled for this LinkedIn profile');
       }
 
       // Get next available slot
       const nextSlot = await this.calculateNextAvailableSlot(
-        post.workspaceId,
+        post.linkedInProfileId,
         timeSlots,
       );
 
@@ -1156,9 +1193,9 @@ export class ContentPostingService {
       const [queuedPost, updatedPost] = await this.prisma.$transaction([
         this.prisma.queuedPost.create({
           data: {
-            workspaceId: post.workspaceId,
+            linkedInProfileId: post.linkedInProfileId,
             postId: post.id,
-            queueOrder: await this.getNextQueueOrder(post.workspaceId),
+            queueOrder: await this.getNextQueueOrder(post.linkedInProfileId),
             scheduledFor: nextSlot,
           },
         }),
@@ -1169,7 +1206,6 @@ export class ContentPostingService {
             scheduledTime: nextSlot,
           },
           include: {
-            workspace: true,
             linkedInProfile: true,
             postLogs: true,
           },
@@ -1186,20 +1222,20 @@ export class ContentPostingService {
   }
 
   private async calculateNextAvailableSlot(
-    workspaceId: string,
+    linkedInProfileId: string,
     timeSlots: PostTimeSlot,
   ): Promise<Date | null> {
     try {
       const now = new Date();
       console.log('=== Starting calculateNextAvailableSlot ===');
       console.log('Current time:', now);
-      console.log('Workspace ID:', workspaceId);
+      console.log('LinkedIn Profile ID:', linkedInProfileId);
       console.log('Time Slots Config:', JSON.stringify(timeSlots, null, 2));
 
-      // Get all scheduled posts for this workspace
+      // Get all scheduled posts for this LinkedIn profile
       const scheduledPosts = await this.prisma.linkedInPost.findMany({
         where: {
-          workspaceId,
+          linkedInProfileId,
           status: coreConstant.POST_STATUS.SCHEDULED,
           scheduledTime: {
             gte: now,
@@ -1378,9 +1414,9 @@ export class ContentPostingService {
     }
   }
 
-  private async getNextQueueOrder(workspaceId: string): Promise<number> {
+  private async getNextQueueOrder(linkedInProfileId: string): Promise<number> {
     const lastQueued = await this.prisma.queuedPost.findFirst({
-      where: { workspaceId },
+      where: { linkedInProfileId },
       orderBy: { queueOrder: 'desc' },
     });
     return (lastQueued?.queueOrder || 0) + 1;
@@ -1388,22 +1424,22 @@ export class ContentPostingService {
 
   async updateTimeSlotSettings(
     userId: string,
-    workspaceId: string,
+    linkedInProfileId: string,
     settings: TimeSlotSettingsDto,
   ): Promise<ResponseModel> {
     try {
-      const workspace = await this.prisma.workspace.findFirst({
-        where: { id: workspaceId, userId },
+      const linkedInProfile = await this.prisma.linkedInProfile.findFirst({
+        where: { id: linkedInProfileId, userId },
       });
 
-      if (!workspace) {
-        return errorResponse('Workspace not found');
+      if (!linkedInProfile) {
+        return errorResponse('LinkedIn profile not found');
       }
 
       const timeSlots = await this.prisma.postTimeSlot.upsert({
-        where: { workspaceId },
+        where: { linkedInProfileId },
         create: {
-          workspaceId,
+          linkedInProfileId,
           monday: [],
           tuesday: [],
           wednesday: [],
@@ -1450,25 +1486,25 @@ export class ContentPostingService {
 
   async shuffleQueue(
     userId: string,
-    workspaceId: string,
+    linkedInProfileId: string,
   ): Promise<ResponseModel> {
     try {
-      // Verify workspace belongs to user
-      const workspace = await this.prisma.workspace.findFirst({
+      // Verify LinkedIn profile belongs to user
+      const linkedInProfile = await this.prisma.linkedInProfile.findFirst({
         where: {
-          id: workspaceId,
+          id: linkedInProfileId,
           userId,
         },
       });
 
-      if (!workspace) {
-        return errorResponse('Workspace not found');
+      if (!linkedInProfile) {
+        return errorResponse('LinkedIn profile not found');
       }
 
       // Get all queued posts
       const queuedPosts = await this.prisma.queuedPost.findMany({
         where: {
-          workspaceId,
+          linkedInProfileId,
           post: {
             status: coreConstant.POST_STATUS.SCHEDULED,
           },
@@ -1527,17 +1563,27 @@ export class ContentPostingService {
 
       // Fetch and return the updated queue
       const updatedQueue = await this.prisma.queuedPost.findMany({
-        where: { workspaceId },
+        where: { linkedInProfileId },
         include: {
           post: {
             include: {
-              workspace: true,
               linkedInProfile: true,
               postLogs: {
                 orderBy: {
                   createdAt: 'desc',
                 },
                 take: 1,
+              },
+              images: true,
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  first_name: true,
+                  last_name: true,
+                  user_name: true,
+                  photo: true,
+                },
               },
             },
           },

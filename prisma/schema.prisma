@@ -31,32 +31,12 @@ model User {
   login_provider        String                  @db.VarChar(50)
   LinkedInProfiles      LinkedInProfile[]
   LinkedInPosts         LinkedInPost[]
-  Carousels             Carousel[]
   UserTokens            UserTokens[]
   UserVerificationCodes UserVerificationCodes[]
   Subscription          Subscription?
   UserBranding          UserBranding?
-  Workspaces            Workspace[]
 
   @@index([id])
-}
-
-model Workspace {
-  id              String         @id @default(cuid())
-  name            String
-  description     String?
-  isDefault       Boolean        @default(false)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  userId          String
-  personalAiVoice String?        @db.Text
-  user            User           @relation(fields: [userId], references: [id])
-  linkedInPosts   LinkedInPost[]
-  carousels       Carousel[]
-  postTimeSlots   PostTimeSlot[]
-  queuedPosts     QueuedPost[]
-
-  @@index([userId])
 }
 
 model LinkedInProfile {
@@ -76,6 +56,8 @@ model LinkedInProfile {
   updatedAt          DateTime       @updatedAt
   user               User           @relation(fields: [userId], references: [id])
   LinkedInPost       LinkedInPost[]
+  QueuedPosts        QueuedPost[]
+  PostTimeSlot       PostTimeSlot?
 
   @@index([userId])
 }
@@ -102,17 +84,14 @@ model LinkedInPost {
   videoTitle          String?
   publishingErrorCode String?
   userId              String
-  workspaceId         String
-  linkedInProfileId   String?
-  linkedInProfile     LinkedInProfile?    @relation(fields: [linkedInProfileId], references: [id])
+  linkedInProfileId   String
+  linkedInProfile     LinkedInProfile     @relation(fields: [linkedInProfileId], references: [id])
   user                User                @relation(fields: [userId], references: [id])
-  workspace           Workspace           @relation(fields: [workspaceId], references: [id])
   postLogs            PostLog[]
   images              LinkedInPostImage[]
   queuedPost          QueuedPost?
 
   @@index([userId])
-  @@index([workspaceId])
   @@index([linkedInProfileId])
 }
 
@@ -220,7 +199,7 @@ model Subscription {
   lastWordResetDate   DateTime @default(now())
   nextWordResetDate   DateTime // For monthly reset planning
 
-  subscriptionId      String?
+  subscriptionId String?
 
   // LinkedIn Usage Tracking
   linkedInAccountLimit Int      @default(1)
@@ -250,7 +229,6 @@ model Subscription {
   // Relations
   wordTokenLogs WordTokenLog[]
 
-  // Indexes
   @@index([userId])
   @@index([packageId])
   @@index([status])
@@ -272,20 +250,6 @@ model WordTokenLog {
   @@index([subscriptionId])
   @@index([type])
   @@index([createdAt])
-}
-
-model Carousel {
-  id          String    @id @default(cuid())
-  userId      String
-  data        Json
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  workspaceId String
-  user        User      @relation(fields: [userId], references: [id])
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-
-  @@index([userId])
-  @@index([workspaceId])
 }
 
 model UserBranding {
@@ -328,9 +292,9 @@ model LinkedInPostImage {
 }
 
 model PostTimeSlot {
-  id          String    @id @default(cuid())
-  workspaceId String    @unique
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id                String          @id @default(cuid())
+  linkedInProfileId String          @unique
+  linkedInProfile   LinkedInProfile @relation(fields: [linkedInProfileId], references: [id], onDelete: Cascade)
 
   // Preferred posting times for each day
   monday    Json[] // Array of time strings ["09:00", "15:00", "18:00"]
@@ -349,20 +313,20 @@ model PostTimeSlot {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([workspaceId])
+  @@index([linkedInProfileId])
 }
 
 model QueuedPost {
-  id           String       @id @default(cuid())
-  workspaceId  String
-  workspace    Workspace    @relation(fields: [workspaceId], references: [id])
-  postId       String       @unique
-  post         LinkedInPost @relation(fields: [postId], references: [id])
-  queueOrder   Int // Position in queue
-  scheduledFor DateTime? // Calculated scheduled time
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id                String          @id @default(cuid())
+  linkedInProfileId String
+  linkedInProfile   LinkedInProfile @relation(fields: [linkedInProfileId], references: [id])
+  postId            String          @unique
+  post              LinkedInPost    @relation(fields: [postId], references: [id])
+  queueOrder        Int // Position in queue
+  scheduledFor      DateTime? // Calculated scheduled time
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
-  @@index([workspaceId])
+  @@index([linkedInProfileId])
   @@index([postId])
 }

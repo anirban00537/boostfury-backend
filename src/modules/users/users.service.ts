@@ -89,19 +89,25 @@ export class UsersService {
           },
         });
 
-        // Create a default workspace
-        const workspace = await prisma.workspace.create({
+        // Create a default LinkedIn profile
+        const linkedInProfile = await prisma.linkedInProfile.create({
           data: {
-            name: `${user.first_name || user.email}'s Workspace`,
+            name: `${user.first_name || user.email}'s Profile`,
             isDefault: true,
             userId: user.id,
+            profileId: `default-${user.id}`,
+            accessToken: 'default',
+            clientId: 'default',
+            creatorId: 'default',
+            tokenExpiringAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
           },
         });
 
-        return { user, workspace };
+        return { user, linkedInProfile };
       });
-
-      if (result.user && result.workspace) {
+      console.log(result, 'result');
+      if (result.user && result.linkedInProfile) {
+        console.log('entered here');
         // Start trial subscription
         const trialResult =
           await this.subscriptionService.createTrialSubscription(

@@ -20,5 +20,5 @@ export class GetPostsQueryDto {
 
   @IsOptional()
   @IsString()
-  workspace_id?: string;
+  linkedInProfileId?: string;
 }

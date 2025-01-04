@@ -13,11 +13,7 @@ export class AdminController {
     return this.adminService.getDashboardData();
   }
 
-  @IsAdmin()
-  @Get('get-carousels')
-  async getCarousels(@Query() query: PaginationOptions) {
-    return this.adminService.getCarousels(query);
-  }
+
   @IsAdmin()
   @Get('get-users')
   async getUsers(@Query() query: PaginationOptions) {

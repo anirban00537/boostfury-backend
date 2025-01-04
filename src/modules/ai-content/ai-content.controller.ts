@@ -42,13 +42,6 @@ export class AiContentController {
     return this.aiContentService.generateLinkedInPosts(user.id.toString(), dto);
   }
 
-  @Post('generate-content-ideas-for-workspace')
-  generateContentIdeasForWorkspace(
-    @UserInfo() user: User,
-    @Body() dto: GenerateContentIdeasForWorkspaceDto,
-  ): Promise<ResponseModel> {
-    return this.aiContentService.generateContentIdeasForWorkspace(user.id, dto);
-  }
 
   @Post('rewrite-content')
   @IsSubscribed()
