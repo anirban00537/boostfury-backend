@@ -11,13 +11,11 @@ async function main() {
   await prisma.postLog.deleteMany({});
   await prisma.linkedInPost.deleteMany({});
   await prisma.linkedInProfile.deleteMany({});
-  await prisma.carousel.deleteMany({});
   await prisma.userBranding.deleteMany({});
   await prisma.userVerificationCodes.deleteMany({});
   await prisma.userTokens.deleteMany({});
   await prisma.subscription.deleteMany({});
   await prisma.package.deleteMany({});
-  await prisma.workspace.deleteMany({});
   await prisma.user.deleteMany({});
 
   console.log('Database cleanup completed');

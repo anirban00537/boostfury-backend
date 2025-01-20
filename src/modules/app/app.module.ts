@@ -14,11 +14,9 @@ import { MailModule } from 'src/shared/mail/mail.module';
 import { ApiSecretCheckMiddleware } from 'src/shared/middlewares/apisecret.middleware';
 import { coreConstant } from 'src/shared/helpers/coreConstant';
 import { BrandingModule } from '../branding/branding.module';
-import { CarouselModule } from '../carousel/carousel.module';
 import { LoggerModule } from '../logger/logger.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
 import { AdminModule } from '../admin/admin.module';
-import { WorkspaceModule } from '../workspace/workspace.module';
 import { AiContentModule } from '../ai-content/ai-content.module';
 import { ContentPostingModule } from '../content-posting/content-posting.module';
 import { LinkedInModule } from '../linkedin/linkedin.module';
@@ -40,7 +38,6 @@ import { SchedulingModule } from '../scheduling/scheduling.module';
     LoggerModule,
     SubscriptionModule,
     AdminModule,
-    WorkspaceModule,
     AiContentModule,
     ContentPostingModule,
     LinkedInModule,

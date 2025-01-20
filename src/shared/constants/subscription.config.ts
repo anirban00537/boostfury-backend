@@ -5,7 +5,6 @@ export const SUBSCRIPTION_CONFIG = {
     FEATURES: {
       POSTS_LIMIT: 10,
       IMAGE_UPLOADS: 3,
-      WORKSPACES: 1,
       LINKEDIN_PROFILES: 1,
       CAROUSELS: 3,
     },

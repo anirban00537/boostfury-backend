@@ -48,9 +48,9 @@ export class LinkedInController {
     return this.linkedInService.handleOAuthCallback(code, state);
   }
 
-  @Get('profiles')
-  async getProfiles(@UserInfo() user: User) {
-    return this.linkedInService.getUserLinkedInProfiles(user.id);
+  @Get('profile')
+  async getProfile(@UserInfo() user: User) {
+    return this.linkedInService.getUserLinkedInProfile(user.id);
   }
   @Delete('disconnect/:profileId')
   @IsSubscribed()

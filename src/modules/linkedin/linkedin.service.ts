@@ -235,9 +235,9 @@ export class LinkedInService {
     }
   }
 
-  async getUserLinkedInProfiles(userId: string): Promise<ResponseModel> {
+  async getUserLinkedInProfile(userId: string): Promise<ResponseModel> {
     try {
-      const profiles = await this.prisma.linkedInProfile.findMany({
+      const profile = await this.prisma.linkedInProfile.findFirst({
         where: {
           userId: userId,
         },
@@ -254,23 +254,23 @@ export class LinkedInService {
         },
       });
 
-      if (!profiles.length) {
-        return successResponse('No LinkedIn profiles found', { profiles: [] });
+      if (!profile) {
+        return successResponse('No LinkedIn profile found', { profile: null });
       }
 
       // Check for expired tokens
       const now = new Date();
-      const activeProfiles = profiles.map((profile) => ({
+      const activeProfile = {
         ...profile,
         isTokenExpired: profile.tokenExpiringAt < now,
-      }));
+      };
 
-      return successResponse('LinkedIn profiles retrieved successfully', {
-        profiles: activeProfiles,
+      return successResponse('LinkedIn profile retrieved successfully', {
+        profile: activeProfile,
       });
     } catch (error) {
-      this.logger.error('Error getting LinkedIn profiles:', error);
-      return errorResponse(`Failed to get LinkedIn profiles: ${error.message}`);
+      this.logger.error('Error getting LinkedIn profile:', error);
+      return errorResponse(`Failed to get LinkedIn profile: ${error.message}`);
     }
   }
 
@@ -332,11 +332,40 @@ export class LinkedInService {
         );
       }
 
-      // Then delete the profile
-      const deletedProfile = await this.prisma.linkedInProfile.delete({
-        where: {
-          id: id, // Use the internal ID which is unique
-        },
+      // Use a transaction to handle all related deletions
+      const deletedProfile = await this.prisma.$transaction(async (prisma) => {
+        // First, find all LinkedIn posts for this profile
+        const posts = await prisma.linkedInPost.findMany({
+          where: {
+            linkedInProfileId: id,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        // Delete all post logs for these posts
+        await prisma.postLog.deleteMany({
+          where: {
+            linkedInPostId: {
+              in: posts.map((post) => post.id),
+            },
+          },
+        });
+
+        // Then delete all LinkedIn posts
+        await prisma.linkedInPost.deleteMany({
+          where: {
+            linkedInProfileId: id,
+          },
+        });
+
+        // Finally delete the profile
+        return await prisma.linkedInProfile.delete({
+          where: {
+            id: id,
+          },
+        });
       });
 
       console.log('LinkedIn profile disconnected:', {

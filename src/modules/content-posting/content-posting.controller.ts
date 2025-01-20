@@ -43,7 +43,7 @@ export class ContentPostingController {
       page: query.page,
       pageSize: query.pageSize,
       status: query.status,
-      workspace_id: query.workspace_id,
+      linkedInProfileId: query.linkedInProfileId,
     });
   }
 
@@ -124,7 +124,7 @@ export class ContentPostingController {
     return this.contentPostingService.getScheduledQueue(userInfo.id, {
       page: query.page,
       pageSize: query.pageSize,
-      workspace_id: query.workspace_id,
+      linkedInProfileId: query.linkedInProfileId,
     });
   }
 

@@ -18,8 +18,6 @@ export class CreateOrUpdateDraftPostDto {
   @IsEnum(PostType)
   postType: PostType;
 
-  @IsString()
-  workspaceId: string;
 
   @IsOptional()
   @IsString()

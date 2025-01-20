@@ -9,7 +9,6 @@ export interface PricingPlan {
     aiWordsPerMonth: number;
     postsPerMonth: number;
     imageUploads: number;
-    workspaces: number;
     linkedInProfiles: number;
     carousels: number;
   };
@@ -39,7 +38,6 @@ export const PRICING_PLANS: PricingPlan[] = [
       aiWordsPerMonth: 10000,
       postsPerMonth: 30,
       imageUploads: 5,
-      workspaces: 1,
       linkedInProfiles: 1,
       carousels: 10,
     },
@@ -56,7 +54,6 @@ export const PRICING_PLANS: PricingPlan[] = [
       '10,000 AI words per month',
       '30 posts per month',
       '5 image uploads',
-      '1 workspace',
       '1 LinkedIn profile',
       '10 carousels',
       'Basic post scheduling',
@@ -78,7 +75,6 @@ export const PRICING_PLANS: PricingPlan[] = [
       aiWordsPerMonth: 50000,
       postsPerMonth: -1, // Unlimited
       imageUploads: -1, // Unlimited
-      workspaces: -1, // Unlimited
       linkedInProfiles: -1, // Unlimited
       carousels: -1, // Unlimited
     },
@@ -95,7 +91,6 @@ export const PRICING_PLANS: PricingPlan[] = [
       '50,000 AI words per month',
       'Unlimited posts',
       'Unlimited image uploads',
-      'Unlimited workspaces',
       'Unlimited LinkedIn profiles',
       'Unlimited carousels',
       'Advanced post scheduling',
@@ -141,7 +136,6 @@ export const getFormattedFeatures = (plan: PricingPlan): string[] => {
     `${getLimitText(plan.limits.aiWordsPerMonth)} AI words per month`,
     `${getLimitText(plan.limits.postsPerMonth)} posts per month`,
     `${getLimitText(plan.limits.imageUploads)} image uploads`,
-    `${getLimitText(plan.limits.workspaces)} workspaces`,
     `${getLimitText(plan.limits.linkedInProfiles)} LinkedIn profiles`,
     `${getLimitText(plan.limits.carousels)} carousels`,
   ];

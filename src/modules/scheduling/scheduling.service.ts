@@ -39,7 +39,6 @@ export class SchedulingService {
         },
         include: {
           linkedInProfile: true,
-          workspace: true,
           user: true,
         },
       });
@@ -61,7 +60,7 @@ export class SchedulingService {
         console.log(
           chalk.blue('[Scheduling Service]'),
           chalk.yellow(`Processing post ID: ${post.id}`),
-          chalk.gray(`(Workspace: ${post.workspace.name})`),
+          chalk.gray(`(LinkedIn Profile: ${post.linkedInProfile.name})`),
         );
 
         // Check subscription status before posting
@@ -172,9 +171,9 @@ export class SchedulingService {
               last_name: true,
             },
           },
-          workspace: {
+          linkedInProfile: {
             select: {
-              name: true,
+              name: true
             },
           },
         },
@@ -217,7 +216,7 @@ export class SchedulingService {
           chalk.cyan(`Time until publish: ${hoursUntil}h ${minutesUntil}m`),
           '\n',
           chalk.gray('├─'),
-          chalk.green(`Workspace: ${post.workspace.name}`),
+          chalk.green(`LinkedIn Profile: ${post.linkedInProfile.name}`),
           '\n',
           chalk.gray('├─'),
           chalk.magenta(`User: ${post.user.first_name} ${post.user.last_name}`),

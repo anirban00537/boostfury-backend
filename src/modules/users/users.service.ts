@@ -89,19 +89,13 @@ export class UsersService {
           },
         });
 
-        // Create a default workspace
-        const workspace = await prisma.workspace.create({
-          data: {
-            name: `${user.first_name || user.email}'s Workspace`,
-            isDefault: true,
-            userId: user.id,
-          },
-        });
+        // Create a default LinkedIn profile
 
-        return { user, workspace };
+        return { user };
       });
-
-      if (result.user && result.workspace) {
+      console.log(result, 'result');
+      if (result.user) {
+        console.log('entered here');
         // Start trial subscription
         const trialResult =
           await this.subscriptionService.createTrialSubscription(
