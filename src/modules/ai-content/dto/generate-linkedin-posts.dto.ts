@@ -12,4 +12,7 @@ export class GenerateLinkedInPostsDto {
   @IsString()
   tone?: string;
 
+  @IsOptional()
+  @IsString()
+  postLength?: 'short' | 'medium' | 'long';
 }

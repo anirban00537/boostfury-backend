@@ -347,6 +347,7 @@ export class AiContentService {
         dto.prompt,
         dto.language,
         dto.tone,
+        dto.postLength,
       );
 
       const tokenDeduction = await this.checkAndDeductTokens(

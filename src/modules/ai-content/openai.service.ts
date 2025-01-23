@@ -278,6 +278,7 @@ export class OpenAIService {
     prompt: string,
     language: string = 'en',
     tone: string = 'professional',
+    postLength: string = 'medium',
   ): Promise<string> {
     try {
       const toneGuide = {
@@ -291,9 +292,14 @@ export class OpenAIService {
         technical: 'Employ precise, technical terminology',
       };
 
+      const lengthGuide = {
+        short: 'Keep the post concise and brief (max 500 characters)',
+        medium: 'Write a balanced post (max 1000 characters)',
+        long: 'Create a detailed post (max 1500 characters)',
+      };
+
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini-2024-07-18',
-
         messages: [
           {
             role: 'system',
@@ -331,7 +337,7 @@ export class OpenAIService {
             - ***Plain text only (NO markdown, HTML, **, #, *, _)***
             - Use \n\n for paragraph breaks
             - Include up to 3 relevant emojis to enhance expression
-            - STRICT 1300 character limit
+            - ${lengthGuide[postLength]}
             - Use bullet points (•) sparingly and effectively donot add any **, #, *, _
             - Maintain consistent paragraph spacing
             - Avoid long stories; keep the content focused and impactful
@@ -347,10 +353,11 @@ export class OpenAIService {
           {
             role: 'user',
             content: `
- Create a LinkedIn post about "${prompt}" that is highly engaging and has the potential to go viral.
+            Create a LinkedIn post about "${prompt}" that is highly engaging and has the potential to go viral.
 
             Style: ${toneGuide[tone]}
             Language: ${language}
+            Length: ${lengthGuide[postLength]}
             `,
           },
         ],
