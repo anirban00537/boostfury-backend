@@ -1173,10 +1173,7 @@ export class ContentPostingService {
         where: { linkedInProfileId: post.linkedInProfileId },
       });
 
-      if (!timeSlots?.isEnabled) {
-        return errorResponse('Please add time slots to enable queue');
-      }
-
+  
       // Get next available slot
       const nextSlot = await this.calculateNextAvailableSlot(
         post.linkedInProfileId,
@@ -1344,14 +1341,7 @@ export class ContentPostingService {
               slotDate.toDateString(),
           ).length;
 
-          console.log('Slot evaluation:', {
-            hasConflict,
-            postsOnThisDay,
-            maxPostsPerDay: timeSlots.postsPerDay || 2,
-            isAvailable:
-              !hasConflict && postsOnThisDay < (timeSlots.postsPerDay || 2),
-          });
-
+      
           // If no conflict and within daily limit, use this slot
           if (!hasConflict && postsOnThisDay < (timeSlots.postsPerDay || 2)) {
             console.log('Found available slot:', slotDate);
@@ -1447,7 +1437,6 @@ export class ContentPostingService {
           sunday: [],
           postsPerDay: 2,
           minTimeGap: 120,
-          isEnabled: true,
         },
         update: {
           monday: [],
@@ -1459,7 +1448,6 @@ export class ContentPostingService {
           sunday: [],
           postsPerDay: 2,
           minTimeGap: 120,
-          isEnabled: true,
         },
       });
 
@@ -1473,7 +1461,6 @@ export class ContentPostingService {
         sunday: timeSlots.sunday,
         postsPerDay: timeSlots.postsPerDay,
         minTimeGap: timeSlots.minTimeGap,
-        isEnabled: timeSlots.isEnabled,
       });
     } catch (error) {
       return errorResponse(

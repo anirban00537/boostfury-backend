@@ -308,8 +308,6 @@ model PostTimeSlot {
   // Queue settings
   postsPerDay Int     @default(2)
   minTimeGap  Int     @default(120) // Minimum minutes between posts
-  isEnabled   Boolean @default(true)
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
