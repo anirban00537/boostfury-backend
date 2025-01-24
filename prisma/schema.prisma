@@ -40,24 +40,26 @@ model User {
 }
 
 model LinkedInProfile {
-  id                 String         @id @default(cuid())
-  userId             String
-  profileId          String         @unique
-  accessToken        String         @db.Text
-  name               String?
-  email              String?
-  avatarUrl          String?        @db.Text
-  clientId           String
-  creatorId          String
-  linkedInProfileUrl String?        @db.Text
-  tokenExpiringAt    DateTime
-  isDefault          Boolean        @default(false)
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  user               User           @relation(fields: [userId], references: [id])
-  LinkedInPost       LinkedInPost[]
-  QueuedPosts        QueuedPost[]
-  PostTimeSlot       PostTimeSlot?
+  id                   String         @id @default(cuid())
+  userId               String
+  profileId            String         @unique
+  accessToken          String         @db.Text
+  name                 String?
+  email                String?
+  avatarUrl            String?        @db.Text
+  clientId             String
+  creatorId            String
+  linkedInProfileUrl   String?        @db.Text
+  tokenExpiringAt      DateTime
+  isDefault            Boolean        @default(false)
+  professionalIdentity String?        @db.Text
+  contentTopics        String[]       @default([])
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  user                 User           @relation(fields: [userId], references: [id])
+  LinkedInPost         LinkedInPost[]
+  QueuedPosts          QueuedPost[]
+  PostTimeSlot         PostTimeSlot?
 
   @@index([userId])
 }
@@ -306,10 +308,10 @@ model PostTimeSlot {
   sunday    Json[]
 
   // Queue settings
-  postsPerDay Int     @default(2)
-  minTimeGap  Int     @default(120) // Minimum minutes between posts
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  postsPerDay Int      @default(2)
+  minTimeGap  Int      @default(120) // Minimum minutes between posts
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([linkedInProfileId])
 }

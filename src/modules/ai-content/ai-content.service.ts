@@ -7,6 +7,7 @@ import { OpenAIService } from './openai.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { coreConstant } from 'src/shared/helpers/coreConstant';
 import { RewriteContentDto } from './dto/rewrite-content.dto';
+import { UpdateAiStyleDto } from './dto/update-ai-style.dto';
 
 interface TokenCheckResult {
   isValid: boolean;
@@ -589,6 +590,78 @@ export class AiContentService {
     } catch (error) {
       this.logger.error(`Error rewriting content: ${error.message}`);
       return errorResponse('Error rewriting content');
+    }
+  }
+
+  async updateAiStyle(
+    userId: string,
+    linkedInProfileId: string,
+    updateAiStyleDto: UpdateAiStyleDto,
+  ): Promise<ResponseModel> {
+    try {
+      // Verify LinkedIn profile belongs to user
+      const linkedInProfile = await this.prisma.linkedInProfile.findFirst({
+        where: {
+          id: linkedInProfileId,
+          userId,
+        },
+      });
+
+      if (!linkedInProfile) {
+        return errorResponse('LinkedIn profile not found');
+      }
+
+      // Update AI style preferences
+      const updatedProfile = await this.prisma.linkedInProfile.update({
+        where: { id: linkedInProfileId },
+        data: {
+          professionalIdentity: updateAiStyleDto.professionalIdentity,
+          contentTopics: updateAiStyleDto.contentTopics,
+          updatedAt: new Date(),
+        },
+        select: {
+          id: true,
+          professionalIdentity: true,
+          contentTopics: true,
+        },
+      });
+
+      return successResponse('AI style preferences updated successfully', {
+        aiStyle: updatedProfile,
+      });
+    } catch (error) {
+      this.logger.error(`Error updating AI style: ${error.message}`);
+      return errorResponse('Failed to update AI style preferences');
+    }
+  }
+
+  async getAiStyle(
+    userId: string,
+    linkedInProfileId: string,
+  ): Promise<ResponseModel> {
+    try {
+      const linkedInProfile = await this.prisma.linkedInProfile.findFirst({
+        where: {
+          id: linkedInProfileId,
+          userId,
+        },
+        select: {
+          id: true,
+          professionalIdentity: true,
+          contentTopics: true,
+        },
+      });
+
+      if (!linkedInProfile) {
+        return errorResponse('LinkedIn profile not found');
+      }
+
+      return successResponse('AI style preferences retrieved successfully', {
+        aiStyle: linkedInProfile,
+      });
+    } catch (error) {
+      this.logger.error(`Error retrieving AI style: ${error.message}`);
+      return errorResponse('Failed to retrieve AI style preferences');
     }
   }
 }

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, UseGuards } from '@nestjs/common';
 import { AiContentService } from './ai-content.service';
 import { ResponseModel } from 'src/shared/models/response.model';
 import { GenerateCarouselContentDto } from './dto/generate-caorusel-content.dto';
@@ -7,18 +7,13 @@ import { User } from '../users/entities/user.entity';
 import { UserInfo } from 'src/shared/decorators/user.decorators';
 import { IsSubscribed } from 'src/shared/decorators/is-subscribed.decorator';
 import { RewriteContentDto } from './dto/rewrite-content.dto';
+import { UpdateAiStyleDto } from './dto/update-ai-style.dto';
 
 @Controller('ai-content')
 export class AiContentController {
   constructor(private readonly aiContentService: AiContentService) {}
 
-  @Post('generate-carousel-content')
-  generateCarouselContent(
-    @UserInfo() user: User,
-    @Body() dto: GenerateCarouselContentDto,
-  ): Promise<ResponseModel> {
-    return this.aiContentService.generateCarouselContent(user.id, dto);
-  }
+ 
 
   @Post('generate-linkedin-post-content-for-carousel')
   @IsSubscribed()
@@ -41,7 +36,6 @@ export class AiContentController {
     return this.aiContentService.generateLinkedInPosts(user.id.toString(), dto);
   }
 
-
   @Post('rewrite-content')
   @IsSubscribed()
   rewriteContent(
@@ -49,5 +43,28 @@ export class AiContentController {
     @Body() dto: RewriteContentDto,
   ): Promise<ResponseModel> {
     return this.aiContentService.rewriteContent(user.id, dto);
+  }
+
+  @Post('linkedin-profiles/ai-style/:linkedInProfileId')
+  @IsSubscribed()
+  async updateAiStyle(
+    @UserInfo() user: User,
+    @Param('linkedInProfileId') linkedInProfileId: string,
+    @Body() updateAiStyleDto: UpdateAiStyleDto,
+  ): Promise<ResponseModel> {
+    return this.aiContentService.updateAiStyle(
+      user.id,
+      linkedInProfileId,
+      updateAiStyleDto,
+    );
+  }
+
+  @Get('linkedin-profiles/ai-style/:linkedInProfileId')
+  @IsSubscribed()
+  async getAiStyle(
+    @UserInfo() user: User,
+    @Param('linkedInProfileId') linkedInProfileId: string,
+  ): Promise<ResponseModel> {
+    return this.aiContentService.getAiStyle(user.id, linkedInProfileId);
   }
 }

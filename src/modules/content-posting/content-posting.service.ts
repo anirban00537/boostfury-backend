@@ -1173,7 +1173,6 @@ export class ContentPostingService {
         where: { linkedInProfileId: post.linkedInProfileId },
       });
 
-  
       // Get next available slot
       const nextSlot = await this.calculateNextAvailableSlot(
         post.linkedInProfileId,
@@ -1341,7 +1340,6 @@ export class ContentPostingService {
               slotDate.toDateString(),
           ).length;
 
-      
           // If no conflict and within daily limit, use this slot
           if (!hasConflict && postsOnThisDay < (timeSlots.postsPerDay || 2)) {
             console.log('Found available slot:', slotDate);
