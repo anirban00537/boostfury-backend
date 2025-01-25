@@ -1,10 +1,12 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, Min, Max } from 'class-validator';
 
 export class RewriteContentDto {
   @IsString()
   @IsNotEmpty()
-  content: string;
+  linkedInPostId: string;
 
-  @IsNotEmpty()
-  instructions: string;
+  @IsNumber()
+  @Min(1)
+  @Max(9)
+  instructionType: number;
 }

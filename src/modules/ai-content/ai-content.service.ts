@@ -477,6 +477,24 @@ export class AiContentService {
     dto: RewriteContentDto,
   ): Promise<ResponseModel> {
     try {
+      // Check if the LinkedIn post exists and belongs to the user
+      const post = await this.prisma.linkedInPost.findFirst({
+        where: {
+          id: dto.linkedInPostId,
+          userId: userId,
+        },
+      });
+
+      if (!post) {
+        return errorResponse('LinkedIn post not found or you do not have permission to rewrite it');
+      }
+
+      // Get the instruction prompt based on the type
+      const instruction = coreConstant.LINKEDIN_REWRITE_PROMPTS[dto.instructionType];
+      if (!instruction) {
+        return errorResponse('Invalid instruction type');
+      }
+
       // Check token availability first
       const tokenCheck =
         await this.checkTokenAvailabilityBeforeGeneration(userId);
@@ -484,21 +502,24 @@ export class AiContentService {
         return errorResponse(this.getErrorMessage(tokenCheck.message));
       }
 
-      const content = await this.openAIService.rewriteContent(
-        dto.content,
-        dto.instructions,
+      const rewrittenContent = await this.openAIService.rewriteContent(
+        post.content,
+        instruction,
       );
 
-      const tokenDeduction = await this.checkAndDeductTokens(userId, content);
+      const tokenDeduction = await this.checkAndDeductTokens(userId, rewrittenContent);
       if (!tokenDeduction.isValid) {
         return errorResponse(this.getErrorMessage(tokenDeduction.message));
       }
 
       return successResponse('Content rewritten successfully', {
-        content,
+        content: rewrittenContent,
+        originalContent: post.content,
         wordCount: tokenDeduction.wordCount,
         remainingTokens: tokenDeduction.remainingTokens,
         totalTokens: tokenDeduction.totalTokens,
+        instructionType: dto.instructionType,
+        instruction,
       });
     } catch (error) {
       this.logger.error(`Error rewriting content: ${error.message}`);

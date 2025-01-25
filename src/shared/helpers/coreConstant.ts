@@ -96,7 +96,30 @@ export const coreConstant = {
     WEDNESDAY: 3,
     THURSDAY: 4,
     FRIDAY: 5,
-  SATURDAY: 6,
+    SATURDAY: 6,
+  },
+
+  LINKEDIN_REWRITE_INSTRUCTIONS: {
+    IMPROVE: 1, // Improve the overall quality and engagement
+    SHORTER: 2, // Make the content more concise
+    LONGER: 3, // Expand the content with more details
+    PROFESSIONAL: 4, // Make it more formal and professional
+    CASUAL: 5, // Make it more conversational and friendly
+    SEO_OPTIMIZE: 6, // Optimize for LinkedIn's algorithm
+    STORYTELLING: 7, // Convert into a story format
+    PERSUASIVE: 8, // Make it more convincing and action-oriented
+    IMPROVE_HOOK: 9, // Improve the opening hook to grab attention
+  },
+
+  LINKEDIN_REWRITE_PROMPTS: {
+    1: "Improve this LinkedIn post by enhancing its clarity, impact, and engagement potential while maintaining its core message",
+    2: "Rewrite this LinkedIn post to be more concise and impactful, focusing on the key message",
+    3: "Expand this LinkedIn post with more details, examples, and insights while maintaining engagement",
+    4: "Rewrite this LinkedIn post in a more professional and formal tone suitable for a business audience",
+    5: "Transform this LinkedIn post into a more conversational and relatable tone while keeping the message",
+    6: "Optimize this LinkedIn post for better visibility and engagement on LinkedIn's platform",
+    7: "Rewrite this LinkedIn post as an engaging story that captures attention and delivers the message",
+    8: "Make this LinkedIn post more persuasive and action-oriented to drive better engagement",
+    9: "Improve the opening hook of this LinkedIn post to instantly grab attention and make readers want to read more",
   },
 };
-
