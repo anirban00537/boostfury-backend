@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { successResponse, errorResponse } from 'src/shared/helpers/functions';
-import { GenerateCarouselContentDto } from './dto/generate-caorusel-content.dto';
 import { GenerateLinkedInPostsDto } from './dto/generate-linkedin-posts.dto';
 import { ResponseModel } from 'src/shared/models/response.model';
 import { OpenAIService } from './openai.service';
@@ -279,59 +278,6 @@ export class AiContentService {
     }
   }
 
-  async generateCarouselContent(
-    userId: string,
-    dto: GenerateCarouselContentDto,
-  ): Promise<ResponseModel> {
-    try {
-      // Check token availability first
-      const tokenCheck =
-        await this.checkTokenAvailabilityBeforeGeneration(userId);
-      if (!tokenCheck.isValid) {
-        return errorResponse(this.getErrorMessage(tokenCheck.message));
-      }
-
-      const content: string =
-        await this.openAIService.generateCarouselContentFromTopic(
-          dto.topic,
-          dto.numSlides,
-          dto.language,
-          dto.mood,
-          dto.contentStyle,
-          dto.targetAudience,
-        );
-
-      const tokenDeduction = await this.checkAndDeductTokens(userId, content);
-      if (!tokenDeduction.isValid) {
-        return errorResponse(this.getErrorMessage(tokenDeduction.message));
-      }
-
-      let colorPaletteResponse: string | null = null;
-      if (dto.themeActive) {
-        colorPaletteResponse =
-          await this.openAIService.generateCarouselColorPaletteFromPromptTopic(
-            dto.topic,
-            dto.theme,
-          );
-      }
-
-      const response = this.openAIService.parseCarouselContentToJSON(content);
-      const colorPalette = colorPaletteResponse
-        ? this.openAIService.parseColorPaletteToJSON(colorPaletteResponse)
-        : null;
-
-      return successResponse('Carousel content generated successfully', {
-        response,
-        colorPalette,
-        wordCount: tokenDeduction.wordCount,
-        remainingTokens: tokenDeduction.remainingTokens,
-        totalTokens: tokenDeduction.totalTokens,
-      });
-    } catch (error) {
-      this.logger.error(`Error generating carousel content: ${error.message}`);
-      return errorResponse('Error generating carousel content');
-    }
-  }
 
   async generateLinkedInPosts(
     userId: string,
@@ -373,41 +319,7 @@ export class AiContentService {
     }
   }
 
-  async generateLinkedInPostContentForCarousel(
-    userId: string,
-    topic: string,
-  ): Promise<ResponseModel> {
-    try {
-      // Check token availability first
-      const tokenCheck =
-        await this.checkTokenAvailabilityBeforeGeneration(userId);
-      if (!tokenCheck.isValid) {
-        return errorResponse(this.getErrorMessage(tokenCheck.message));
-      }
 
-      const content =
-        await this.openAIService.generateLinkedInPostContentForCarousel(topic);
-
-      const tokenDeduction = await this.checkAndDeductTokens(userId, content);
-      if (!tokenDeduction.isValid) {
-        return errorResponse(this.getErrorMessage(tokenDeduction.message));
-      }
-
-      return successResponse('LinkedIn post content generated successfully', {
-        post: content,
-        wordCount: tokenDeduction.wordCount,
-        remainingTokens: tokenDeduction.remainingTokens,
-        totalTokens: tokenDeduction.totalTokens,
-      });
-    } catch (error) {
-      this.logger.error(
-        `Error generating LinkedIn post content for carousel: ${error.message}`,
-      );
-      return errorResponse(
-        'Error generating LinkedIn post content for carousel',
-      );
-    }
-  }
 
   async addTokens(userId: string, amount: number): Promise<ResponseModel> {
     try {

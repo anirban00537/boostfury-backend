@@ -1,7 +1,6 @@
 import { Controller, Post, Body, Get, Param, UseGuards } from '@nestjs/common';
 import { AiContentService } from './ai-content.service';
 import { ResponseModel } from 'src/shared/models/response.model';
-import { GenerateCarouselContentDto } from './dto/generate-caorusel-content.dto';
 import { GenerateLinkedInPostsDto } from './dto/generate-linkedin-posts.dto';
 import { User } from '../users/entities/user.entity';
 import { UserInfo } from 'src/shared/decorators/user.decorators';
@@ -14,17 +13,7 @@ import { GeneratePersonalizedPostDto } from './dto/generate-personalized-post.dt
 export class AiContentController {
   constructor(private readonly aiContentService: AiContentService) {}
 
-  @Post('generate-linkedin-post-content-for-carousel')
-  @IsSubscribed()
-  generateLinkedInPostContentForCarousel(
-    @UserInfo() user: User,
-    @Body() { topic }: { topic: string },
-  ): Promise<ResponseModel> {
-    return this.aiContentService.generateLinkedInPostContentForCarousel(
-      user.id,
-      topic,
-    );
-  }
+
 
   @Post('generate-linkedin-posts')
   @IsSubscribed()
