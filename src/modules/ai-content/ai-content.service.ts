@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { coreConstant } from 'src/shared/helpers/coreConstant';
 import { RewriteContentDto } from './dto/rewrite-content.dto';
 import { UpdateAiStyleDto } from './dto/update-ai-style.dto';
+import { GeneratePersonalizedPostDto } from './dto/generate-personalized-post.dto';
 
 interface TokenCheckResult {
   isValid: boolean;
@@ -662,6 +663,82 @@ export class AiContentService {
     } catch (error) {
       this.logger.error(`Error retrieving AI style: ${error.message}`);
       return errorResponse('Failed to retrieve AI style preferences');
+    }
+  }
+
+  async generatePersonalizedPost(
+    userId: string,
+    dto: GeneratePersonalizedPostDto,
+  ): Promise<ResponseModel> {
+    try {
+      // Check token availability first
+      const tokenCheck =
+        await this.checkTokenAvailabilityBeforeGeneration(userId);
+      if (!tokenCheck.isValid) {
+        return errorResponse(this.getErrorMessage(tokenCheck.message));
+      }
+
+      // Get LinkedIn profile data
+      const linkedInProfile = await this.prisma.linkedInProfile.findFirst({
+        where: {
+          id: dto.linkedInProfileId,
+          userId,
+        },
+        select: {
+          professionalIdentity: true,
+          contentTopics: true,
+        },
+      });
+
+      if (!linkedInProfile) {
+        return errorResponse('LinkedIn profile not found');
+      }
+
+      if (!linkedInProfile.professionalIdentity) {
+        return errorResponse('Professional identity not set');
+      }
+
+      if (!linkedInProfile.contentTopics?.length) {
+        return errorResponse('No content topics defined');
+      }
+
+      // Randomly select one topic from the available topics
+      const selectedTopic =
+        linkedInProfile.contentTopics[
+          Math.floor(Math.random() * linkedInProfile.contentTopics.length)
+        ];
+
+      // Generate the content
+      const rawContent =
+        await this.openAIService.generatePersonalizedLinkedInPost(
+          linkedInProfile.professionalIdentity,
+          selectedTopic,
+          dto.language,
+          dto.postLength,
+        );
+
+      // Check and deduct tokens
+      const tokenDeduction = await this.checkAndDeductTokens(
+        userId,
+        rawContent,
+      );
+      if (!tokenDeduction.isValid) {
+        return errorResponse(this.getErrorMessage(tokenDeduction.message));
+      }
+
+      return successResponse(
+        'Personalized LinkedIn post generated successfully',
+        {
+          post: rawContent,
+          selectedTopic,
+          wordCount: tokenDeduction.wordCount,
+          remainingTokens: tokenDeduction.remainingTokens,
+          totalTokens: tokenDeduction.totalTokens,
+        },
+      );
+    } catch (error) {
+      this.logger.error('Error generating personalized post:', error);
+      return errorResponse('Error generating personalized post');
     }
   }
 }

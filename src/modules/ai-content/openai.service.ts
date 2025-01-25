@@ -299,7 +299,7 @@ export class OpenAIService {
       };
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini-2024-07-18',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -336,7 +336,6 @@ export class OpenAIService {
             Format Requirements:
             - ***Plain text only (NO markdown, HTML, **, #, *, _)***
             - Use \n\n for paragraph breaks
-            - Include up to 3 relevant emojis to enhance expression
             - ${lengthGuide[postLength]}
             - Use bullet points (•) sparingly and effectively donot add any **, #, *, _
             - Maintain consistent paragraph spacing
@@ -527,6 +526,73 @@ Make it engaging and professional while maintaining brevity.
       return response.choices[0].message.content;
     } catch (error) {
       this.logger.error('Error rewriting content:', error);
+      throw error;
+    }
+  }
+
+  async generatePersonalizedLinkedInPost(
+    professionalIdentity: string,
+    selectedTopic: string,
+    language: string = 'en',
+    postLength: string = 'medium',
+  ): Promise<string> {
+    try {
+      const lengthGuide = {
+        short: 'Keep the post concise and brief (max 500 characters)',
+        medium: 'Write a balanced post (max 1000 characters)',
+        long: 'Create a detailed post (max 1500 characters)',
+      };
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini-2024-07-18',
+        messages: [
+          {
+            role: 'system',
+            content: `
+            You are an expert LinkedIn content creator specializing in professional thought leadership.
+
+            Context (For Understanding Only):
+            - Writer's Background: ${professionalIdentity}
+            - Topic to Focus On: ${selectedTopic}
+            
+            Content Guidelines:
+            - Create focused, insightful content about ${selectedTopic}
+            - Provide industry insights and professional perspectives
+            - Share practical knowledge and actionable advice
+            - Maintain an authoritative yet approachable tone
+            - Focus entirely on the topic, not on personal introductions
+
+            Content Structure:
+            1. Hook: Brief attention-grabbing opener (1 line max)
+            2. Core Message: Share key insights about ${selectedTopic}
+            3. Main Points: 2-3 valuable takeaways
+            4. Practical Application: How this knowledge can be applied
+            5. Engagement: End with a thought-provoking question
+
+            Format Requirements:
+            - Plain text only (NO markdown, HTML, **, #, *, _)
+            - Use \n\n for paragraph breaks
+            - ${lengthGuide[postLength]}
+            - Use bullet points (•) sparingly
+            - Keep paragraphs short (2-3 lines max)
+            `,
+          },
+          {
+            role: 'user',
+            content: `Create an engaging LinkedIn post about ${selectedTopic} from your professional perspective. Share insights that would be valuable to your network.`,
+          },
+        ],
+        max_tokens: 1000,
+        temperature: 0.7,
+      });
+
+      if (!response?.choices?.[0]?.message?.content) {
+        throw new Error('No response from OpenAI');
+      }
+
+      return response.choices[0].message.content;
+    } catch (error) {
+      this.logger.error('Error generating personalized LinkedIn post:', error);
       throw error;
     }
   }

@@ -249,6 +249,8 @@ export class LinkedInService {
           linkedInProfileUrl: true,
           tokenExpiringAt: true,
           isDefault: true,
+          contentTopics: true,
+          professionalIdentity: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -344,12 +346,35 @@ export class LinkedInService {
           },
         });
 
-        // Delete all post logs for these posts
+        // Delete QueuedPosts first (due to the required relation)
+        await prisma.queuedPost.deleteMany({
+          where: {
+            linkedInProfileId: id,
+          },
+        });
+
+        // Delete post logs
         await prisma.postLog.deleteMany({
           where: {
             linkedInPostId: {
               in: posts.map((post) => post.id),
             },
+          },
+        });
+
+        // Delete post images
+        await prisma.linkedInPostImage.deleteMany({
+          where: {
+            postId: {
+              in: posts.map((post) => post.id),
+            },
+          },
+        });
+
+        // Delete time slots
+        await prisma.postTimeSlot.deleteMany({
+          where: {
+            linkedInProfileId: id,
           },
         });
 

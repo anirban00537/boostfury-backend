@@ -8,12 +8,11 @@ import { UserInfo } from 'src/shared/decorators/user.decorators';
 import { IsSubscribed } from 'src/shared/decorators/is-subscribed.decorator';
 import { RewriteContentDto } from './dto/rewrite-content.dto';
 import { UpdateAiStyleDto } from './dto/update-ai-style.dto';
+import { GeneratePersonalizedPostDto } from './dto/generate-personalized-post.dto';
 
 @Controller('ai-content')
 export class AiContentController {
   constructor(private readonly aiContentService: AiContentService) {}
-
- 
 
   @Post('generate-linkedin-post-content-for-carousel')
   @IsSubscribed()
@@ -66,5 +65,14 @@ export class AiContentController {
     @Param('linkedInProfileId') linkedInProfileId: string,
   ): Promise<ResponseModel> {
     return this.aiContentService.getAiStyle(user.id, linkedInProfileId);
+  }
+
+  @Post('generate-personalized-post')
+  @IsSubscribed()
+  async generatePersonalizedPost(
+    @UserInfo() user: User,
+    @Body() dto: GeneratePersonalizedPostDto,
+  ): Promise<ResponseModel> {
+    return this.aiContentService.generatePersonalizedPost(user.id, dto);
   }
 }
