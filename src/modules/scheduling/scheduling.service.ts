@@ -16,8 +16,12 @@ export class SchedulingService {
     const subscription = await this.prisma.subscription.findUnique({
       where: { userId },
     });
-    
+
     return subscription?.endDate > new Date();
+  }
+
+  private getTimeInTimezone(timezone: string): Date {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -29,13 +33,10 @@ export class SchedulingService {
         new Date().toISOString(),
       );
 
-      const now = new Date();
+      // Get all scheduled posts with their profiles
       const scheduledPosts = await this.prisma.linkedInPost.findMany({
         where: {
           status: coreConstant.POST_STATUS.SCHEDULED,
-          scheduledTime: {
-            lte: now,
-          },
         },
         include: {
           linkedInProfile: true,
@@ -46,17 +47,50 @@ export class SchedulingService {
       if (scheduledPosts.length === 0) {
         console.log(
           chalk.blue('[Scheduling Service]'),
-          chalk.gray('No posts scheduled for publishing at this time'),
+          chalk.gray('No scheduled posts found'),
+        );
+        return;
+      }
+
+      // Filter posts that should be published based on their timezone
+      const postsToPublish = scheduledPosts.filter((post) => {
+        const profileTimezone = post.linkedInProfile.timezone || 'UTC';
+        const timeInProfileZone = this.getTimeInTimezone(profileTimezone);
+        const scheduledTime = new Date(post.scheduledTime);
+
+        console.log(
+          chalk.blue('[Scheduling Service]'),
+          chalk.yellow(`Post ${post.id} scheduling info:`),
+          '\n',
+          chalk.gray('├─'),
+          chalk.cyan(`Profile Timezone: ${profileTimezone}`),
+          '\n',
+          chalk.gray('├─'),
+          chalk.cyan(
+            `Current Time in Profile's Timezone: ${timeInProfileZone.toISOString()}`,
+          ),
+          '\n',
+          chalk.gray('└─'),
+          chalk.cyan(`Scheduled Time: ${scheduledTime.toISOString()}`),
+        );
+
+        return scheduledTime <= timeInProfileZone;
+      });
+
+      if (postsToPublish.length === 0) {
+        console.log(
+          chalk.blue('[Scheduling Service]'),
+          chalk.gray('No posts ready for publishing at this time'),
         );
         return;
       }
 
       console.log(
         chalk.blue('[Scheduling Service]'),
-        chalk.green(`Found ${scheduledPosts.length} posts to publish`),
+        chalk.green(`Found ${postsToPublish.length} posts to publish`),
       );
 
-      for (const post of scheduledPosts) {
+      for (const post of postsToPublish) {
         console.log(
           chalk.blue('[Scheduling Service]'),
           chalk.yellow(`Processing post ID: ${post.id}`),
@@ -64,7 +98,10 @@ export class SchedulingService {
         );
 
         // Check subscription status before posting
-        const isSubscriptionActive = await this.isUserSubscriptionActive(post.userId);
+        const isSubscriptionActive = await this.isUserSubscriptionActive(
+          post.userId,
+        );
+
         if (!isSubscriptionActive) {
           await this.prisma.$transaction(async (prisma) => {
             await prisma.linkedInPost.update({
@@ -150,7 +187,7 @@ export class SchedulingService {
         },
       });
 
-      const activeUserIds = activeSubscriptions.map(sub => sub.userId);
+      const activeUserIds = activeSubscriptions.map((sub) => sub.userId);
 
       const pendingPosts = await this.prisma.linkedInPost.findMany({
         where: {
@@ -173,7 +210,7 @@ export class SchedulingService {
           },
           linkedInProfile: {
             select: {
-              name: true
+              name: true,
             },
           },
         },
