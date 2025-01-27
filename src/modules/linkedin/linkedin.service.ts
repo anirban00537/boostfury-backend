@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import axios from 'axios';
 import { successResponse, errorResponse } from 'src/shared/helpers/functions';
 import { ResponseModel } from 'src/shared/models/response.model';
+import { isValidTimeZone } from 'src/shared/utils/timezone.util';
 import {
   LinkedInPostResponse,
   LinkedInPostError,
@@ -65,8 +66,14 @@ export class LinkedInService {
   async handleOAuthCallback(
     code: string,
     state: string,
+    timezone: string = 'UTC',
   ): Promise<ResponseModel> {
     try {
+      // Validate timezone
+      if (!isValidTimeZone(timezone)) {
+        return errorResponse('Invalid timezone format');
+      }
+
       // Get userId from state map
       const userId = this.stateMap.get(state);
       if (!userId) {
@@ -101,7 +108,7 @@ export class LinkedInService {
           );
         }
 
-        // If connected to same user, update the token
+        // If connected to same user, update the token and timezone
         const updatedProfile = await this.prisma.linkedInProfile.update({
           where: {
             profileId: profile.sub,
@@ -112,6 +119,7 @@ export class LinkedInService {
             name: profile.name,
             email: profile.email,
             avatarUrl: profile.picture,
+            timezone,
           },
         });
 
@@ -133,6 +141,7 @@ export class LinkedInService {
           creatorId: profile.sub,
           tokenExpiringAt: new Date(Date.now() + tokenData.expires_in * 1000),
           isDefault: true, // First profile is set as default
+          timezone,
         },
       });
 
@@ -771,6 +780,49 @@ export class LinkedInService {
     } catch (error) {
       console.error('Upload error:', error.response?.data || error);
       throw error;
+    }
+  }
+
+  async updateProfileTimezone(
+    userId: string,
+    timezone: string,
+  ): Promise<ResponseModel> {
+    try {
+      // Validate timezone
+      if (!isValidTimeZone(timezone)) {
+        return errorResponse('Invalid timezone format');
+      }
+
+      // Find user's LinkedIn profile
+      const profile = await this.prisma.linkedInProfile.findFirst({
+        where: { userId },
+      });
+
+      if (!profile) {
+        return errorResponse('No LinkedIn profile found for this user');
+      }
+
+      // Update timezone
+      const updatedProfile = await this.prisma.linkedInProfile.update({
+        where: { id: profile.id },
+        data: { timezone },
+        select: {
+          id: true,
+          profileId: true,
+          name: true,
+          timezone: true,
+          avatarUrl: true,
+          linkedInProfileUrl: true,
+          isDefault: true,
+        },
+      });
+
+      return successResponse('Timezone updated successfully', {
+        profile: updatedProfile,
+      });
+    } catch (error) {
+      this.logger.error('Error updating timezone:', error);
+      return errorResponse(`Failed to update timezone: ${error.message}`);
     }
   }
 }

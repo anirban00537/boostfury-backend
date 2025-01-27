@@ -7,6 +7,8 @@ import {
   Req,
   Param,
   Delete,
+  Patch,
+  Body,
 } from '@nestjs/common';
 import { LinkedInService } from './linkedin.service';
 import { UserInfo } from 'src/shared/decorators/user.decorators';
@@ -34,6 +36,7 @@ export class LinkedInController {
   async handleCallback(
     @Query('code') code: string,
     @Query('state') state: string,
+    @Query('timezone') timezone: string = 'UTC',
     @Query('error') error?: string,
     @Query('error_description') errorDescription?: string,
   ) {
@@ -45,13 +48,14 @@ export class LinkedInController {
       return errorResponse('Missing required parameters');
     }
 
-    return this.linkedInService.handleOAuthCallback(code, state);
+    return this.linkedInService.handleOAuthCallback(code, state, timezone);
   }
 
   @Get('profile')
   async getProfile(@UserInfo() user: User) {
     return this.linkedInService.getUserLinkedInProfile(user.id);
   }
+
   @Delete('disconnect/:profileId')
   @IsSubscribed()
   async disconnectProfile(
@@ -59,5 +63,15 @@ export class LinkedInController {
     @Param('profileId') profileId: string,
   ) {
     return this.linkedInService.disconnectLinkedInProfile(user.id, profileId);
+  }
+
+  @Patch('profile/timezone')
+  @ApiOperation({ summary: 'Update LinkedIn profile timezone' })
+  @IsSubscribed()
+  async updateTimezone(
+    @UserInfo() user: User,
+    @Body('timezone') timezone: string,
+  ) {
+    return this.linkedInService.updateProfileTimezone(user.id, timezone);
   }
 }

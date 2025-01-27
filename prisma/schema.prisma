@@ -54,6 +54,7 @@ model LinkedInProfile {
   isDefault            Boolean        @default(false)
   professionalIdentity String?        @db.Text
   contentTopics        String[]       @default([])
+  timezone             String         @default("UTC")
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
   user                 User           @relation(fields: [userId], references: [id])

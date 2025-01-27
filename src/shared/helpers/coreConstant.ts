@@ -112,14 +112,14 @@ export const coreConstant = {
   },
 
   LINKEDIN_REWRITE_PROMPTS: {
-    1: "Improve this LinkedIn post by enhancing its clarity, impact, and engagement potential while maintaining its core message",
-    2: "Rewrite this LinkedIn post to be more concise and impactful, focusing on the key message",
-    3: "Expand this LinkedIn post with more details, examples, and insights while maintaining engagement",
-    4: "Rewrite this LinkedIn post in a more professional and formal tone suitable for a business audience",
-    5: "Transform this LinkedIn post into a more conversational and relatable tone while keeping the message",
+    1: 'Improve this LinkedIn post by enhancing its clarity, impact, and engagement potential while maintaining its core message',
+    2: 'Rewrite this LinkedIn post to be more concise and impactful, focusing on the key message',
+    3: 'Expand this LinkedIn post with more details, examples, and insights while maintaining engagement',
+    4: 'Rewrite this LinkedIn post in a more professional and formal tone suitable for a business audience',
+    5: 'Transform this LinkedIn post into a more conversational and relatable tone while keeping the message',
     6: "Optimize this LinkedIn post for better visibility and engagement on LinkedIn's platform",
-    7: "Rewrite this LinkedIn post as an engaging story that captures attention and delivers the message",
-    8: "Make this LinkedIn post more persuasive and action-oriented to drive better engagement",
-    9: "Improve the opening hook of this LinkedIn post to instantly grab attention and make readers want to read more",
+    7: 'Rewrite this LinkedIn post as an engaging story that captures attention and delivers the message',
+    8: 'Make this LinkedIn post more persuasive and action-oriented to drive better engagement',
+    9: 'Improve the opening hook of this LinkedIn post to instantly grab attention and make readers want to read more',
   },
 };
