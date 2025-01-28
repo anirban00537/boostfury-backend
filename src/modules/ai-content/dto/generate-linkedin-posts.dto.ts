@@ -15,4 +15,8 @@ export class GenerateLinkedInPostsDto {
   @IsOptional()
   @IsString()
   postLength?: 'short' | 'medium' | 'long';
+
+  @IsOptional()
+  @IsString()
+  category?: string;
 }

@@ -278,7 +278,6 @@ export class AiContentService {
     }
   }
 
-
   async generateLinkedInPosts(
     userId: string,
     dto: GenerateLinkedInPostsDto,
@@ -296,6 +295,7 @@ export class AiContentService {
         dto.language,
         dto.tone,
         dto.postLength,
+        dto.category,
       );
 
       const tokenDeduction = await this.checkAndDeductTokens(
@@ -318,8 +318,6 @@ export class AiContentService {
       return errorResponse('Error generating LinkedIn post');
     }
   }
-
-
 
   async addTokens(userId: string, amount: number): Promise<ResponseModel> {
     try {
@@ -486,11 +484,14 @@ export class AiContentService {
       });
 
       if (!post) {
-        return errorResponse('LinkedIn post not found or you do not have permission to rewrite it');
+        return errorResponse(
+          'LinkedIn post not found or you do not have permission to rewrite it',
+        );
       }
 
       // Get the instruction prompt based on the type
-      const instruction = coreConstant.LINKEDIN_REWRITE_PROMPTS[dto.instructionType];
+      const instruction =
+        coreConstant.LINKEDIN_REWRITE_PROMPTS[dto.instructionType];
       if (!instruction) {
         return errorResponse('Invalid instruction type');
       }
@@ -507,7 +508,10 @@ export class AiContentService {
         instruction,
       );
 
-      const tokenDeduction = await this.checkAndDeductTokens(userId, rewrittenContent);
+      const tokenDeduction = await this.checkAndDeductTokens(
+        userId,
+        rewrittenContent,
+      );
       if (!tokenDeduction.isValid) {
         return errorResponse(this.getErrorMessage(tokenDeduction.message));
       }

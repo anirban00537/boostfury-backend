@@ -36,10 +36,6 @@ export class OpenAIService {
     });
   }
 
-
-
-  
-
   parseCarouselContentToJSON(content: string): Slide[] {
     const slides: Slide[] = [];
     const sections = content
@@ -103,6 +99,7 @@ export class OpenAIService {
     language: string = 'en',
     tone: string = 'professional',
     postLength: string = 'medium',
+    category?: string,
   ): Promise<string> {
     try {
       const toneGuide = {
@@ -171,6 +168,7 @@ export class OpenAIService {
             - Encourage interaction by posing thought-provoking questions
             - Maintain authenticity and avoid clichés
             - Tailor the content to resonate with a professional audience
+            ${category ? `- Focus on the ${category} category and its specific audience` : ''}
             `,
           },
           {
@@ -181,6 +179,7 @@ export class OpenAIService {
             Style: ${toneGuide[tone]}
             Language: ${language}
             Length: ${lengthGuide[postLength]}
+            ${category ? `Category: ${category}` : ''}
             `,
           },
         ],
