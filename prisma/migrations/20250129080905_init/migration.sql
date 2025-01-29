@@ -20,6 +20,8 @@ CREATE TABLE "User" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "login_provider" VARCHAR(50) NOT NULL,
+    "linkedin_id" VARCHAR(255),
+    "linkedin_access_token" TEXT,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
@@ -40,6 +42,7 @@ CREATE TABLE "LinkedInProfile" (
     "isDefault" BOOLEAN NOT NULL DEFAULT false,
     "professionalIdentity" TEXT,
     "contentTopics" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "timezone" TEXT NOT NULL DEFAULT 'UTC',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -257,6 +260,9 @@ CREATE UNIQUE INDEX "User_user_name_key" ON "User"("user_name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_unique_code_key" ON "User"("unique_code");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_linkedin_id_key" ON "User"("linkedin_id");
 
 -- CreateIndex
 CREATE INDEX "User_id_idx" ON "User"("id");

@@ -29,6 +29,8 @@ model User {
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
   login_provider        String                  @db.VarChar(50)
+  linkedin_id           String?                 @unique @db.VarChar(255)
+  linkedin_access_token String?                 @db.Text
   LinkedInProfiles      LinkedInProfile[]
   LinkedInPosts         LinkedInPost[]
   UserTokens            UserTokens[]

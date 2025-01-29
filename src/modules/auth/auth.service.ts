@@ -34,6 +34,8 @@ import { OAuth2Client } from 'google-auth-library';
 import { ConfigService } from '@nestjs/config';
 import { LOGIN_PROVIDER } from 'src/shared/constants/global.constants';
 import { SubscriptionService } from '../subscription/subscription.service';
+import { LinkedInLoginDto } from './dto/linkedin-login.dto';
+import axios from 'axios';
 
 @Injectable()
 export class AuthService {
@@ -522,5 +524,250 @@ export class AuthService {
       user,
       isAdmin: user.role === coreConstant.USER_ROLE_ADMIN,
     });
+  }
+
+  async linkedinLogin(
+    linkedinLoginDto: LinkedInLoginDto,
+  ): Promise<ResponseModel> {
+    try {
+      const { code, state } = linkedinLoginDto;
+
+      // Exchange authorization code for access token
+      const tokenResponse = await axios.post(
+        'https://www.linkedin.com/oauth/v2/accessToken',
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: this.configService.get('LINKEDIN_LOGIN_REDIRECT_URI'),
+          client_id: this.configService.get('LINKEDIN_CLIENT_ID'),
+          client_secret: this.configService.get('LINKEDIN_CLIENT_SECRET'),
+        }).toString(),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        },
+      );
+
+      const accessToken = tokenResponse.data.access_token;
+
+      // Get user profile information using LinkedIn v2 API
+      const profileResponse = await axios.get(
+        'https://api.linkedin.com/v2/userinfo',
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      const profile = profileResponse.data;
+
+      // Extract user information from profile
+      const userData = {
+        email: profile.email,
+        firstName: profile.given_name,
+        lastName: profile.family_name,
+        linkedinId: profile.sub,
+        accessToken,
+        photo: profile.picture,
+      };
+
+      const user = await this.findOrCreateLinkedInUser(userData);
+
+      // Check if this LinkedIn profile is already connected to any user
+      const existingProfile = await this.prisma.linkedInProfile.findFirst({
+        where: {
+          profileId: profile.sub,
+        },
+        include: {
+          user: {
+            select: {
+              email: true,
+            },
+          },
+        },
+      });
+
+      let linkedInProfile;
+      if (existingProfile) {
+        // Check if it's connected to a different user
+        if (existingProfile.userId !== user.id) {
+          return errorResponse(
+            `This LinkedIn profile is already connected to another account (${existingProfile.user.email}). Please disconnect it first before connecting to a new account.`,
+          );
+        }
+
+        // If connected to same user, update the token and timezone
+        linkedInProfile = await this.prisma.linkedInProfile.update({
+          where: {
+            profileId: profile.sub,
+          },
+          data: {
+            accessToken: accessToken,
+            tokenExpiringAt: new Date(
+              Date.now() + tokenResponse.data.expires_in * 1000,
+            ),
+            name: `${profile.given_name} ${profile.family_name}`,
+            email: profile.email,
+            avatarUrl: profile.picture,
+          },
+        });
+      } else {
+        // Create new profile if it doesn't exist
+        linkedInProfile = await this.prisma.linkedInProfile.create({
+          data: {
+            userId: user.id,
+            profileId: profile.sub,
+            accessToken: accessToken,
+            name: `${profile.given_name} ${profile.family_name}`,
+            email: profile.email,
+            avatarUrl: profile.picture,
+            clientId: this.configService.get<string>('LINKEDIN_CLIENT_ID'),
+            creatorId: profile.sub,
+            tokenExpiringAt: new Date(
+              Date.now() + tokenResponse.data.expires_in * 1000,
+            ),
+            isDefault: true, // First profile is set as default
+            timezone: 'UTC',
+          },
+        });
+
+        // Create default time slots for new profiles with comments explaining the timing strategy
+        await this.prisma.postTimeSlot.create({
+          data: {
+            linkedInProfileId: linkedInProfile.id,
+            monday: [
+              { time: '08:00', isActive: true }, // Early morning for professionals checking feeds
+              { time: '10:30', isActive: true }, // Mid-morning break time
+              { time: '17:00', isActive: true }, // End of workday
+            ],
+            tuesday: [
+              { time: '08:00', isActive: true }, // Early morning
+              { time: '10:30', isActive: true }, // Mid-morning
+              { time: '17:00', isActive: true }, // End of workday
+            ],
+            wednesday: [
+              { time: '08:00', isActive: true }, // Early morning
+              { time: '10:30', isActive: true }, // Mid-morning
+              { time: '17:00', isActive: true }, // End of workday
+            ],
+            thursday: [
+              { time: '08:00', isActive: true }, // Early morning
+              { time: '10:30', isActive: true }, // Mid-morning
+              { time: '17:00', isActive: true }, // End of workday
+            ],
+            friday: [
+              { time: '08:00', isActive: true }, // Early morning
+              { time: '10:30', isActive: true }, // Mid-morning
+              { time: '15:00', isActive: true }, // Earlier on Fridays as engagement drops later
+            ],
+            saturday: [
+              { time: '11:00', isActive: true }, // Later start on weekends
+              { time: '15:00', isActive: true }, // Afternoon engagement
+            ],
+            sunday: [
+              { time: '11:00', isActive: true }, // Later start on weekends
+              { time: '15:00', isActive: true }, // Afternoon engagement
+            ],
+            postsPerDay: 3, // Default to 3 posts per day
+            minTimeGap: 150, // 2.5 hours minimum gap to avoid oversaturation
+          },
+        });
+      }
+
+      const data = { sub: user.id, email: user.email };
+      const jwtAccessToken = await this.generateAccessToken(data);
+      const refreshToken = await this.createRefreshToken({
+        sub: data.sub,
+        email: data.email,
+      });
+
+      // Check for existing subscription
+      const subscription = await this.prisma.subscription.findUnique({
+        where: { userId: user.id },
+      });
+
+      // Create trial if no subscription exists
+      if (!subscription) {
+        await this.subscriptionService.createTrialSubscription(user.id);
+      }
+
+      const responseData = {
+        accessToken: jwtAccessToken,
+        refreshToken,
+        user,
+        linkedInProfile, // Include the LinkedIn profile in the response
+        isAdmin: user.role === coreConstant.USER_ROLE_ADMIN,
+        subscription: await this.prisma.subscription.findUnique({
+          where: { userId: user.id },
+          include: {
+            package: true,
+          },
+        }),
+      };
+
+      console.log('=== LinkedIn Login Completed Successfully ===');
+      return successResponse('LinkedIn login successful', responseData);
+    } catch (error) {
+      console.log('=== LinkedIn Login Error ===');
+      console.log('Error message:', error.message);
+      console.log('Error stack:', error.stack);
+      console.log('Response data:', error.response?.data);
+      console.log('Response status:', error.response?.status);
+      console.log('Response headers:', error.response?.headers);
+      console.log('=== End Error Log ===');
+
+      return errorResponse(`LinkedIn login failed: ${error.message}`);
+    }
+  }
+
+  async findOrCreateLinkedInUser(linkedinUser: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    linkedinId: string;
+    accessToken: string;
+    photo?: string;
+  }): Promise<User> {
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: linkedinUser.email },
+          { linkedin_id: linkedinUser.linkedinId },
+        ],
+      },
+    });
+
+    if (existingUser) {
+      // Update LinkedIn info if needed
+      await this.prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          linkedin_id: linkedinUser.linkedinId,
+          linkedin_access_token: linkedinUser.accessToken,
+          photo: linkedinUser.photo || existingUser.photo,
+        },
+      });
+      return existingUser;
+    }
+
+    // Create new user
+    const newUser = await this.prisma.user.create({
+      data: {
+        email: linkedinUser.email,
+        first_name: linkedinUser.firstName,
+        last_name: linkedinUser.lastName,
+        user_name: this.generateUniqueUsername(linkedinUser.email),
+        password: '', // No password for social login
+        email_verified: coreConstant.IS_VERIFIED,
+        login_provider: LOGIN_PROVIDER.LINKEDIN,
+        linkedin_id: linkedinUser.linkedinId,
+        linkedin_access_token: linkedinUser.accessToken,
+        photo: linkedinUser.photo,
+      },
+    });
+
+    return newUser;
   }
 }

@@ -12,12 +12,13 @@ import { UserVerificationCodeService } from '../verification_code/user-verify-co
 import { ConfigModule } from '@nestjs/config';
 import { SubscriptionModule } from '../subscription/subscription.module';
 import { UserVerificationCodeModule } from '../verification_code/user-verify-code.module';
+import { LinkedInStrategy } from './strategies/linkedin.strategy';
 
 @Module({
   imports: [
     UsersModule,
     PrismaModule,
-    PassportModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: accessJwtConfig.secret,
       signOptions: { expiresIn: accessJwtConfig.expiresIn },
@@ -26,7 +27,13 @@ import { UserVerificationCodeModule } from '../verification_code/user-verify-cod
     UserVerificationCodeModule,
     SubscriptionModule,
   ],
-  providers: [AuthService, AccessJwtStrategy, UserVerificationCodeService],
+  providers: [
+    AuthService,
+    AccessJwtStrategy,
+    UserVerificationCodeService,
+    LinkedInStrategy,
+  ],
   controllers: [AuthController],
+  exports: [AuthService],
 })
 export class AuthModule {}

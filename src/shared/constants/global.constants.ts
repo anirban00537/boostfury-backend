@@ -28,4 +28,5 @@ export const SLUG_SEPARATOR = '-';
 export const LOGIN_PROVIDER = {
   EMAIL: 'email',
   GOOGLE: 'google',
-};
+  LINKEDIN: 'linkedin',
+} as const;

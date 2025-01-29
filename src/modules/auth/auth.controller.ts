@@ -13,10 +13,20 @@ import { VerifyEmailCredentialsDto } from './dto/verify-email-credentials.dto';
 import { ResetPasswordCredentialsDto } from './dto/reset-password.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { ResponseModel } from 'src/shared/models/response.model';
+import { LinkedInLoginDto } from './dto/linkedin-login.dto';
+import { v4 as uuidv4 } from 'uuid';
+import { ConfigService } from '@nestjs/config';
+import { ApiOperation } from '@nestjs/swagger';
+import { successResponse, errorResponse } from 'src/shared/helpers/functions';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  private stateMap: Map<string, string> = new Map();
+
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Public()
   @Post('signup')
@@ -29,6 +39,7 @@ export class AuthController {
   forgotPassword(@Body() payload: ForgotCredentialsDto) {
     return this.authService.forgotEmail(payload);
   }
+
   @Public()
   @Post('reset-password')
   resetPassword(@Body() payload: ResetPasswordCredentialsDto) {
@@ -56,8 +67,6 @@ export class AuthController {
     return this.authService.login(payload, browserInfo);
   }
 
-  /** Refreshes the user token for silent authentication */
-
   @Post('token-refresh')
   async refreshToken(
     @Body() { refreshToken }: RefreshTokenDto,
@@ -72,34 +81,89 @@ export class AuthController {
     return this.authService.refreshToken(refreshToken, browserInfo);
   }
 
-  /** Logs out the User from the current session */
-
   @Post('logout')
   async logout(@Body() { refreshToken }: LogoutDto) {
     return this.authService.logout(refreshToken);
   }
 
-  /** Logs out the User from all sessions */
-
   @Post('logoutAll')
   async logoutAll(@Req() request: Request) {
     const { userId } = request.body.user as { userId: string };
-
     return this.authService.logoutAll(userId);
   }
-
-  /** Returns all user's active tokens */
 
   @Get('tokens')
   async findAllTokens(@Req() request: Request): Promise<UserTokens[]> {
     const { userId } = request.body.user as { userId: string };
-
     return this.authService.findAllTokens(userId);
   }
 
   @Public()
   @Post('google-login')
-  async googleLogin(@Body() googleLoginDto: GoogleLoginDto): Promise<ResponseModel> {
+  async googleLogin(
+    @Body() googleLoginDto: GoogleLoginDto,
+  ): Promise<ResponseModel> {
     return this.authService.googleLogin(googleLoginDto);
+  }
+
+  @Public()
+  @Get('linkedin-auth/auth-url')
+  @ApiOperation({ summary: 'Get LinkedIn authorization URL for login' })
+  getLinkedInAuthUrl(): ResponseModel {
+    try {
+      const clientId = this.configService.get<string>('LINKEDIN_CLIENT_ID');
+      const redirectUri = this.configService.get<string>(
+        'LINKEDIN_LOGIN_REDIRECT_URI',
+      );
+      const state = uuidv4();
+
+      // Store state for verification during callback
+      this.stateMap.set(state, 'auth-flow');
+      console.log(`Generated state for auth flow:`, state);
+
+      // Using the working scope configuration
+      const scope = [
+        'openid', // OpenID Connect
+        'profile', // Profile access
+        'w_member_social', // Social interactions
+        'email', // Email access
+      ].join(' ');
+
+      const url =
+        `https://www.linkedin.com/oauth/v2/authorization?` +
+        `response_type=code&` +
+        `client_id=${clientId}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `state=${state}&` +
+        `scope=${encodeURIComponent(scope)}&` +
+        `auth_type=AC`; // Add auth_type parameter
+
+      return successResponse('LinkedIn auth URL generated successfully', {
+        url,
+        state,
+      });
+    } catch (error) {
+      console.error('Error generating LinkedIn auth URL:', error);
+      return errorResponse('Failed to generate LinkedIn auth URL');
+    }
+  }
+
+  @Public()
+  @Post('linkedin-login')
+  @ApiOperation({ summary: 'Handle LinkedIn OAuth callback and login' })
+  async linkedinLogin(
+    @Body() linkedinLoginDto: LinkedInLoginDto,
+  ): Promise<ResponseModel> {
+    const { state } = linkedinLoginDto;
+
+    // Verify state to prevent CSRF attacks
+    if (!this.stateMap.has(state)) {
+      return errorResponse('Invalid state parameter');
+    }
+
+    // Clean up state after verification
+    this.stateMap.delete(state);
+
+    return this.authService.linkedinLogin(linkedinLoginDto);
   }
 }
