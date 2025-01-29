@@ -562,6 +562,8 @@ export class AuthService {
       );
 
       const profile = profileResponse.data;
+      console.log('=== LinkedIn Profile Data ===');
+      console.log('Profile:', profile);
 
       // Extract user information from profile
       const userData = {
@@ -574,6 +576,15 @@ export class AuthService {
       };
 
       const user = await this.findOrCreateLinkedInUser(userData);
+
+      // Update user's photo if available from LinkedIn
+      if (profile.picture && (!user.photo || user.photo !== profile.picture)) {
+        console.log('Updating user photo with LinkedIn profile picture...');
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { photo: profile.picture },
+        });
+      }
 
       // Check if this LinkedIn profile is already connected to any user
       const existingProfile = await this.prisma.linkedInProfile.findFirst({
@@ -676,6 +687,11 @@ export class AuthService {
         });
       }
 
+      // Fetch updated user data with new photo
+      const updatedUser = await this.prisma.user.findUnique({
+        where: { id: user.id },
+      });
+
       const data = { sub: user.id, email: user.email };
       const jwtAccessToken = await this.generateAccessToken(data);
       const refreshToken = await this.createRefreshToken({
@@ -696,9 +712,9 @@ export class AuthService {
       const responseData = {
         accessToken: jwtAccessToken,
         refreshToken,
-        user,
-        linkedInProfile, // Include the LinkedIn profile in the response
-        isAdmin: user.role === coreConstant.USER_ROLE_ADMIN,
+        user: updatedUser, // Use updated user data with new photo
+        linkedInProfile,
+        isAdmin: updatedUser.role === coreConstant.USER_ROLE_ADMIN,
         subscription: await this.prisma.subscription.findUnique({
           where: { userId: user.id },
           include: {
@@ -708,6 +724,7 @@ export class AuthService {
       };
 
       console.log('=== LinkedIn Login Completed Successfully ===');
+      console.log('User Photo Updated:', updatedUser.photo);
       return successResponse('LinkedIn login successful', responseData);
     } catch (error) {
       console.log('=== LinkedIn Login Error ===');
