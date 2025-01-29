@@ -100,6 +100,7 @@ export class LinkedInService {
         },
       });
 
+      let linkedInProfile;
       if (existingProfile) {
         // Check if it's connected to a different user
         if (existingProfile.userId !== userId.toString()) {
@@ -109,7 +110,7 @@ export class LinkedInService {
         }
 
         // If connected to same user, update the token and timezone
-        const updatedProfile = await this.prisma.linkedInProfile.update({
+        linkedInProfile = await this.prisma.linkedInProfile.update({
           where: {
             profileId: profile.sub,
           },
@@ -122,28 +123,66 @@ export class LinkedInService {
             timezone,
           },
         });
+      } else {
+        // Create new profile if it doesn't exist
+        linkedInProfile = await this.prisma.linkedInProfile.create({
+          data: {
+            userId,
+            profileId: profile.sub,
+            accessToken: tokenData.access_token,
+            name: profile.name,
+            email: profile.email,
+            avatarUrl: profile.picture,
+            clientId: this.configService.get<string>('LINKEDIN_CLIENT_ID'),
+            creatorId: profile.sub,
+            tokenExpiringAt: new Date(Date.now() + tokenData.expires_in * 1000),
+            isDefault: true, // First profile is set as default
+            timezone,
+          },
+        });
 
-        return successResponse('LinkedIn profile token updated successfully', {
-          profile: updatedProfile,
+        // Create default time slots for new profiles
+        await this.prisma.postTimeSlot.create({
+          data: {
+            linkedInProfileId: linkedInProfile.id,
+            monday: [
+              { time: '08:00', isActive: true }, // Early morning for professionals checking feeds
+              { time: '10:30', isActive: true }, // Mid-morning break time
+              { time: '17:00', isActive: true }, // End of workday
+            ],
+            tuesday: [
+              { time: '08:00', isActive: true },
+              { time: '10:30', isActive: true },
+              { time: '17:00', isActive: true },
+            ],
+            wednesday: [
+              { time: '08:00', isActive: true },
+              { time: '10:30', isActive: true },
+              { time: '17:00', isActive: true },
+            ],
+            thursday: [
+              { time: '08:00', isActive: true },
+              { time: '10:30', isActive: true },
+              { time: '17:00', isActive: true },
+            ],
+            friday: [
+              { time: '08:00', isActive: true },
+              { time: '10:30', isActive: true },
+              { time: '15:00', isActive: true }, // Earlier on Fridays as engagement drops later
+            ],
+            saturday: [
+              { time: '11:00', isActive: true }, // Later start on weekends
+              { time: '15:00', isActive: true },
+            ],
+            sunday: [
+              { time: '11:00', isActive: true }, // Later start on weekends
+              { time: '15:00', isActive: true },
+            ],
+            postsPerDay: 3,
+            minTimeGap: 150, // 2.5 hours minimum gap to avoid oversaturation
+          },
         });
       }
-
-      // Create new profile if it doesn't exist
-      const linkedInProfile = await this.prisma.linkedInProfile.create({
-        data: {
-          userId,
-          profileId: profile.sub,
-          accessToken: tokenData.access_token,
-          name: profile.name,
-          email: profile.email,
-          avatarUrl: profile.picture,
-          clientId: this.configService.get<string>('LINKEDIN_CLIENT_ID'),
-          creatorId: profile.sub,
-          tokenExpiringAt: new Date(Date.now() + tokenData.expires_in * 1000),
-          isDefault: true, // First profile is set as default
-          timezone,
-        },
-      });
 
       console.log('=== OAuth Callback Completed Successfully ===');
 
