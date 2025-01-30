@@ -194,9 +194,6 @@ export class SubscriptionService {
           monthlyWordLimit: proPackage.monthlyWordLimit,
           linkedInAccountLimit: proPackage.linkedInAccountLimit,
           linkedInPostLimit: proPackage.linkedInPostLimit,
-          viralPostGeneration: proPackage.viralPostGeneration,
-          aiStudio: proPackage.aiStudio,
-          postIdeaGenerator: proPackage.postIdeaGenerator,
           billingCycle: 'monthly',
           currency: proPackage.currency,
         },
@@ -207,9 +204,6 @@ export class SubscriptionService {
           monthlyWordLimit: proPackage.monthlyWordLimit,
           linkedInAccountLimit: proPackage.linkedInAccountLimit,
           linkedInPostLimit: proPackage.linkedInPostLimit,
-          viralPostGeneration: proPackage.viralPostGeneration,
-          aiStudio: proPackage.aiStudio,
-          postIdeaGenerator: proPackage.postIdeaGenerator,
         },
       });
 

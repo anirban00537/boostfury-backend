@@ -214,18 +214,11 @@ model Subscription {
   lastPostResetDate    DateTime @default(now())
   nextPostResetDate    DateTime
 
-  // Feature Access (inherited from package but can be overridden)
-  viralPostGeneration Boolean @default(true)
-  aiStudio            Boolean @default(false)
-  postIdeaGenerator   Boolean @default(false)
 
-  // Billing Information
   billingCycle String? // "monthly" | "yearly" | "lifetime"
   renewalPrice Float? // Price for next renewal
   currency     String  @default("USD")
 
-  // Custom Overrides
-  customFeatures Json? // For special cases or temporary feature grants
 
   // Timestamps
   createdAt DateTime @default(now())

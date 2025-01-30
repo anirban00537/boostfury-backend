@@ -27,6 +27,8 @@ export class UserController {
   @Get('profile')
   getProfile(@Request() req) {
     let user = req.user;
+    delete user.password;
+    delete user.linkedin_access_token;
     if (!user) {
       return errorResponse('Please login inorder to get profile data');
     }
