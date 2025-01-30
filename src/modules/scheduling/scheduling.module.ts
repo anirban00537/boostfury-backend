@@ -6,6 +6,7 @@ import { SubscriptionModule } from '../subscription/subscription.module';
 import { SchedulingService } from './scheduling.service';
 import { SubscriptionCronService } from './subscription-cron.service';
 import { MailModule } from 'src/shared/mail/mail.module';
+import { DatabaseBackupCronService } from './database-backup-cron.service';
 
 @Module({
   imports: [
@@ -17,11 +18,13 @@ import { MailModule } from 'src/shared/mail/mail.module';
   ],
   providers: [
     SchedulingService,
-    SubscriptionCronService
+    SubscriptionCronService,
+    DatabaseBackupCronService,
   ],
   exports: [
     SchedulingService,
-    SubscriptionCronService
+    SubscriptionCronService,
+    DatabaseBackupCronService,
   ],
 })
-export class SchedulingModule {} 
+export class SchedulingModule {}
