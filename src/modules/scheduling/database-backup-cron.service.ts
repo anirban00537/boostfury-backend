@@ -14,8 +14,12 @@ export class DatabaseBackupCronService {
   private readonly s3Client: S3Client;
   private readonly BACKUP_PREFIX = 'database-backups/';
   private readonly MAX_BACKUPS = 3;
+  private readonly TEMP_DIR: string;
 
   constructor() {
+    // Use /var/tmp for more persistent storage with proper permissions
+    this.TEMP_DIR = '/var/tmp/db-backups';
+
     this.s3Client = new S3Client({
       region: process.env.AWS_REGION,
       credentials: {
@@ -23,37 +27,47 @@ export class DatabaseBackupCronService {
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       },
     });
+
+    // Ensure backup directory exists with proper permissions
+    this.initializeBackupDirectory();
   }
 
-  @Cron('* * * * *')  // Run every minute
+  private initializeBackupDirectory() {
+    try {
+      if (!fs.existsSync(this.TEMP_DIR)) {
+        fs.mkdirSync(this.TEMP_DIR, { 
+          recursive: true,
+          // 0755 permissions: owner can read/write/execute, others can read/execute
+          mode: 0o755
+        });
+      }
+      console.log(`[Database Backup] Initialized backup directory: ${this.TEMP_DIR}`);
+    } catch (error) {
+      console.error('[Database Backup] Failed to initialize backup directory:', error);
+      throw error;
+    }
+  }
+
+  @Cron('0 */6 * * *')  // Run every 6 hours instead of every minute
   async handleDatabaseBackup() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupFileName = `backup-${timestamp}.sql.gz`;  // Using .gz extension for compressed file
-    const backupPath = path.join(process.cwd(), 'temp', backupFileName);
-    
-    // Enhanced pg_dump command with proper options
-    const dumpCommand = [
-      PG_DUMP_PATH,
-      '--dbname=postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}',
-      '--format=plain',           // Plain text format
-      '--no-owner',              // Don't include ownership commands
-      '--no-acl',               // Don't include access control commands
-      '--no-comments',          // Don't include comments
-      '--compress=9',           // Maximum compression
-      '--verbose',              // Show detailed progress
-      '--file=${backupPath}'    // Output file
-    ].join(' ');
+    const backupFileName = `backup-${timestamp}.sql.gz`;
+    const backupPath = path.join(this.TEMP_DIR, backupFileName);
 
     try {
       console.log('\n[Database Backup] Starting backup process...');
       console.log('[Database Backup] Creating backup file:', backupFileName);
-      
-      // Ensure temp directory exists
-      if (!fs.existsSync(path.join(process.cwd(), 'temp'))) {
-        fs.mkdirSync(path.join(process.cwd(), 'temp'), { recursive: true });
-      }
 
-      // Create backup using pg_dump
+      // Properly escape special characters in password
+      const escapedPassword = process.env.DB_PASSWORD.replace(/['"\\]/g, '\\$&');
+      
+      // Build connection string
+      const connectionString = `postgresql://${process.env.DB_USERNAME}:${escapedPassword}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
+      
+      // Construct pg_dump command with proper escaping
+      const dumpCommand = `${PG_DUMP_PATH} --dbname="${connectionString}" --format=plain --no-owner --no-acl --no-comments --compress=9 --verbose --file="${backupPath}"`;
+
+      // Execute pg_dump
       console.log('[Database Backup] Running pg_dump command...');
       const { stdout, stderr } = await execAsync(dumpCommand, {
         env: {
@@ -63,6 +77,7 @@ export class DatabaseBackupCronService {
           PGHOST: process.env.DB_HOST,
           PGPORT: process.env.DB_PORT,
           PGDATABASE: process.env.DB_NAME,
+          PATH: process.env.PATH
         },
         maxBuffer: 50 * 1024 * 1024  // 50MB buffer for large databases
       });
@@ -76,8 +91,13 @@ export class DatabaseBackupCronService {
       }
 
       // Verify backup file exists and has content
-      if (!fs.existsSync(backupPath) || fs.statSync(backupPath).size === 0) {
-        throw new Error('Backup file is empty or was not created');
+      if (!fs.existsSync(backupPath)) {
+        throw new Error('Backup file was not created');
+      }
+
+      const fileStats = fs.statSync(backupPath);
+      if (fileStats.size === 0) {
+        throw new Error('Backup file is empty');
       }
 
       // Upload to S3
@@ -92,20 +112,20 @@ export class DatabaseBackupCronService {
       };
 
       await this.s3Client.send(new PutObjectCommand(uploadParams));
+      console.log('[Database Backup] Successfully uploaded to S3');
 
       // Clean up local backup file
       fs.unlinkSync(backupPath);
+      console.log('[Database Backup] Cleaned up local backup file');
 
       // Clean up old backups
       await this.cleanupOldBackups();
 
       console.log(`[Database Backup] Backup completed successfully: ${backupFileName}`);
     } catch (error) {
-      console.error('\n[Database Backup] Backup failed:');
-      console.error({
+      console.error('\n[Database Backup] Backup failed:', {
         error: error.message,
         stack: error.stack,
-        command: dumpCommand.replace(process.env.DB_PASSWORD, '****'),  // Hide password in logs
         timestamp: new Date().toISOString(),
         path: backupPath,
         envVars: {
@@ -114,7 +134,7 @@ export class DatabaseBackupCronService {
           DB_PORT: process.env.DB_PORT,
           DB_NAME: process.env.DB_NAME,
           AWS_REGION: process.env.AWS_REGION,
-          AWS_S3_BUCKET_NAME: process.env.AWS_S3_BUCKET_NAME,
+          AWS_S3_BUCKET_NAME: process.env.AWS_S3_BUCKET_NAME
         }
       });
 
