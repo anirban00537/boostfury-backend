@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -10,13 +10,22 @@ const execAsync = promisify(exec);
 const PG_DUMP_PATH = '/usr/bin/pg_dump';
 
 @Injectable()
-export class DatabaseBackupCronService {
+export class DatabaseBackupCronService implements OnModuleInit {
   private readonly s3Client: S3Client;
   private readonly BACKUP_PREFIX = 'database-backups/';
   private readonly MAX_BACKUPS = 3;
   private readonly TEMP_DIR: string;
+  private readonly isBackupEnabled: boolean;
 
   constructor() {
+    // Check if backup is enabled (default to true if not specified)
+    this.isBackupEnabled = process.env.ENABLE_DB_BACKUP !== 'false';
+    
+    if (!this.isBackupEnabled) {
+      console.log('[Database Backup] Backup system is disabled via ENABLE_DB_BACKUP environment variable');
+      return;
+    }
+
     // Use /var/tmp for more persistent storage with proper permissions
     this.TEMP_DIR = '/var/tmp/db-backups';
 
@@ -27,12 +36,17 @@ export class DatabaseBackupCronService {
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       },
     });
-
-    // Ensure backup directory exists with proper permissions
-    this.initializeBackupDirectory();
   }
 
-  private initializeBackupDirectory() {
+  async onModuleInit() {
+    if (this.isBackupEnabled) {
+      // Ensure backup directory exists with proper permissions
+      await this.initializeBackupDirectory();
+      console.log('[Database Backup] Service initialized and enabled');
+    }
+  }
+
+  private async initializeBackupDirectory() {
     try {
       if (!fs.existsSync(this.TEMP_DIR)) {
         fs.mkdirSync(this.TEMP_DIR, { 
@@ -51,6 +65,11 @@ export class DatabaseBackupCronService {
   // Run database backup every 6 hours
   @Cron('0 0 */6 * * *')  // At minute 0, every 6th hour
   async handleDatabaseBackup() {
+    // Skip if backup is disabled
+    if (!this.isBackupEnabled) {
+      return;
+    }
+
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupFileName = `backup-${timestamp}.sql.gz`;
     const backupPath = path.join(this.TEMP_DIR, backupFileName);
