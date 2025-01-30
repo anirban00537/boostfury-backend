@@ -82,12 +82,19 @@ export class DatabaseBackupCronService {
         maxBuffer: 50 * 1024 * 1024  // 50MB buffer for large databases
       });
 
+      // Log stdout if present
       if (stdout) {
         console.log('[Database Backup] pg_dump output:', stdout);
       }
 
-      if (stderr && !stderr.includes('warning')) {
-        throw new Error(`pg_dump stderr: ${stderr}`);
+      // pg_dump uses stderr for progress messages, only throw if it contains "error" or "fatal"
+      if (stderr) {
+        if (stderr.toLowerCase().includes('error:') || stderr.toLowerCase().includes('fatal:')) {
+          throw new Error(`pg_dump error: ${stderr}`);
+        } else {
+          // This is just progress output, log it at debug level
+          console.log('[Database Backup] pg_dump progress:', stderr);
+        }
       }
 
       // Verify backup file exists and has content
