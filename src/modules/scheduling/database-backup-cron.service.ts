@@ -48,7 +48,8 @@ export class DatabaseBackupCronService {
     }
   }
 
-  @Cron('0 */6 * * *')  // Run every 6 hours instead of every minute
+  // Run every 30 seconds for testing purposes
+  @Cron('*/30 * * * * *')  // seconds minutes hours days months days-of-week
   async handleDatabaseBackup() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupFileName = `backup-${timestamp}.sql.gz`;
