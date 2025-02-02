@@ -148,19 +148,8 @@ model Package {
   // Word Generation Limits
   monthlyWordLimit Int // Monthly word generation limit
 
-  // LinkedIn Limits
-  linkedInAccountLimit Int @default(1) // Number of LinkedIn accounts allowed
-  linkedInPostLimit    Int @default(30) // Monthly LinkedIn posts allowed
-  linkedInImageLimit   Int @default(4) // Images per post
-  linkedInVideoLimit   Int @default(1) // Videos per post
-
-  // Feature Access
-  viralPostGeneration Boolean @default(true)
-  aiStudio            Boolean @default(false)
-  postIdeaGenerator   Boolean @default(false)
-
-  // Future Features (JSON for very new or experimental features)
-  additionalFeatures Json? // For beta/new features before making them columns
+  featuresList String[]
+  features     Int[]
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -197,28 +186,20 @@ model Subscription {
   endDate     DateTime
   cancelledAt DateTime?
 
+  // Feature Flags
+  features Int[]
+
   // Word Usage Tracking
   monthlyWordLimit    Int      @default(0) // Current period word limit
   wordsGenerated      Int      @default(0) // Words used in current period
   wordsAllowedInTrial Int? // Only for trial subscriptions
   lastWordResetDate   DateTime @default(now())
-  nextWordResetDate   DateTime // For monthly reset planning
 
-  subscriptionId String?
-
-  // LinkedIn Usage Tracking
-  linkedInAccountLimit Int      @default(1)
-  linkedInAccountsUsed Int      @default(0)
-  linkedInPostLimit    Int      @default(-1)
-  linkedInPostsUsed    Int      @default(0)
-  lastPostResetDate    DateTime @default(now())
-  nextPostResetDate    DateTime
-
-
-  billingCycle String? // "monthly" | "yearly" | "lifetime"
-  renewalPrice Float? // Price for next renewal
-  currency     String  @default("USD")
-
+  nextWordResetDate DateTime // For monthly reset planning
+  subscriptionId    String?
+  billingCycle      String? // "monthly" | "yearly" | "lifetime"
+  renewalPrice      Float? // Price for next renewal
+  currency          String   @default("USD")
 
   // Timestamps
   createdAt DateTime @default(now())

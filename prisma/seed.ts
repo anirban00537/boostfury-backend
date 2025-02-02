@@ -36,17 +36,6 @@ async function main() {
 
       // Word Generation Limits
       monthlyWordLimit: 5000,
-
-      // LinkedIn Limits
-      linkedInAccountLimit: 1,
-      linkedInPostLimit: 10,
-      linkedInImageLimit: 2,
-      linkedInVideoLimit: 0,
-
-      // Features
-      viralPostGeneration: true,
-      aiStudio: true,
-      postIdeaGenerator: true,
     },
   });
 
@@ -55,67 +44,53 @@ async function main() {
     data: {
       id: 'starter',
       name: 'Starter',
-      description: 'Perfect for growing professionals and small businesses',
+      description: 'Perfect for individual creators',
       type: 'monthly',
       status: 'active',
       price: 19,
       currency: 'USD',
-      variantId: '625852',
-      productId: '409704',
-
-      // Word Generation Limits
+      variantId: '647786',
+      productId: '422197',
+      featuresList: [
+        'Ai Advance Editor',
+        'Viral Post maker',
+        'Personal Post Writer',
+        'Unlimited Post Scheduling',
+        '250000 words per month',
+        'Priority Support',
+        'Custom Branding',
+      ],
       monthlyWordLimit: 100000,
-
-      // LinkedIn Limits
-      linkedInAccountLimit: 2,
-      linkedInPostLimit: 60,
-      linkedInImageLimit: 4,
-      linkedInVideoLimit: 1,
-
-      // Features
-      viralPostGeneration: true,
-      aiStudio: true,
-      postIdeaGenerator: true,
     },
   });
+
 
   // Create Pro Package
   await prisma.package.create({
     data: {
       id: 'pro',
       name: 'Pro',
-      description: 'For power users and teams who need more',
+      description: 'For power creators and LinkedIn power users',
       type: 'monthly',
       status: 'active',
       price: 49.99,
       currency: 'USD',
-      variantId: '625851',
-      productId: '409703',
+      variantId: '680327',
+      productId: '441622',
 
-      // Word Generation Limits
-      monthlyWordLimit: 200000,
-
-      // LinkedIn Limits
-      linkedInAccountLimit: 5,
-      linkedInPostLimit: 200,
-      linkedInImageLimit: 8,
-      linkedInVideoLimit: 2,
-
-      // Features
-      viralPostGeneration: true,
-      aiStudio: true,
-      postIdeaGenerator: true,
-
-      // Additional Features
-      additionalFeatures: {
-        prioritySupport: true,
-        advancedAnalytics: true,
-        customBranding: true,
-      },
+      monthlyWordLimit: 250000,
+      featuresList: [
+        'Ai Advance Editor',
+        'Viral Post maker',
+        'Personal Post Writer',
+        'Unlimited Post Scheduling',
+        '250000 words per month',
+        'Priority Support',
+        'Custom Branding',
+      ],
+      features: [1, 2, 3, 4],
     },
   });
-
-
 
   console.log('Seed completed successfully');
 }

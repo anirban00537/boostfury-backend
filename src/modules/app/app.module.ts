@@ -16,7 +16,6 @@ import { coreConstant } from 'src/shared/helpers/coreConstant';
 import { BrandingModule } from '../branding/branding.module';
 import { LoggerModule } from '../logger/logger.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
-import { AdminModule } from '../admin/admin.module';
 import { AiContentModule } from '../ai-content/ai-content.module';
 import { ContentPostingModule } from '../content-posting/content-posting.module';
 import { LinkedInModule } from '../linkedin/linkedin.module';
@@ -34,10 +33,8 @@ import { SchedulingModule } from '../scheduling/scheduling.module';
     UsersModule,
     MailModule,
     BrandingModule,
-    // CarouselModule,
     LoggerModule,
     SubscriptionModule,
-    AdminModule,
     AiContentModule,
     ContentPostingModule,
     LinkedInModule,

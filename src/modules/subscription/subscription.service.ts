@@ -38,13 +38,6 @@ export class SubscriptionService {
           limit: subscription?.monthlyWordLimit || 0,
           nextReset: subscription?.nextWordResetDate,
         },
-        linkedin: {
-          accountsUsed: subscription?.linkedInAccountsUsed || 0,
-          accountsLimit: subscription?.linkedInAccountLimit || 0,
-          postsUsed: subscription?.linkedInPostsUsed || 0,
-          postsLimit: subscription?.linkedInPostLimit || 0,
-          nextReset: subscription?.nextPostResetDate,
-        },
       };
 
       return successResponse('Subscription status retrieved', {
@@ -63,11 +56,6 @@ export class SubscriptionService {
                   }
                 : null,
               subscriptionId: subscription.subscriptionId,
-              features: {
-                viralPostGeneration: subscription.package.viralPostGeneration,
-                aiStudio: subscription.package.aiStudio,
-                postIdeaGenerator: subscription.package.postIdeaGenerator,
-              },
             }
           : null,
         usage: usageData,
@@ -190,10 +178,8 @@ export class SubscriptionService {
           startDate: now,
           endDate,
           nextWordResetDate: nextResetDate,
-          nextPostResetDate: nextResetDate,
           monthlyWordLimit: proPackage.monthlyWordLimit,
-          linkedInAccountLimit: proPackage.linkedInAccountLimit,
-          linkedInPostLimit: proPackage.linkedInPostLimit,
+
           billingCycle: 'monthly',
           currency: proPackage.currency,
         },
@@ -202,8 +188,6 @@ export class SubscriptionService {
           status: 'active',
           endDate,
           monthlyWordLimit: proPackage.monthlyWordLimit,
-          linkedInAccountLimit: proPackage.linkedInAccountLimit,
-          linkedInPostLimit: proPackage.linkedInPostLimit,
         },
       });
 
@@ -260,12 +244,6 @@ export class SubscriptionService {
             used: sub.wordsGenerated,
             limit: sub.monthlyWordLimit,
           },
-          linkedin: {
-            accountsUsed: sub.linkedInAccountsUsed,
-            accountsLimit: sub.linkedInAccountLimit,
-            postsUsed: sub.linkedInPostsUsed,
-            postsLimit: sub.linkedInPostLimit,
-          },
         },
         daysRemaining: Math.ceil(
           (sub.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
@@ -315,11 +293,6 @@ export class SubscriptionService {
           Object.assign(updateData, {
             packageId,
             monthlyWordLimit: newPackage.monthlyWordLimit,
-            linkedInAccountLimit: newPackage.linkedInAccountLimit,
-            linkedInPostLimit: newPackage.linkedInPostLimit,
-            viralPostGeneration: newPackage.viralPostGeneration,
-            aiStudio: newPackage.aiStudio,
-            postIdeaGenerator: newPackage.postIdeaGenerator,
           });
         }
       }
@@ -387,11 +360,9 @@ export class SubscriptionService {
           status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
           monthlyWordLimit: trialPackage.monthlyWordLimit,
           wordsGenerated: 0,
-          linkedInPostsUsed: 0,
           endDate: expirationDate,
           lastWordResetDate: now,
           nextWordResetDate: expirationDate,
-          nextPostResetDate: expirationDate,
           isTrial: true, // Mark as trial subscription
         },
       });
@@ -444,21 +415,12 @@ export class SubscriptionService {
           // Word Generation Limits
           monthlyWordLimit: true,
 
-          // LinkedIn Limits
-          linkedInAccountLimit: true,
-          linkedInPostLimit: true,
-          linkedInImageLimit: true,
-          linkedInVideoLimit: true,
-
-          // Features
-          viralPostGeneration: true,
-          aiStudio: true,
-          postIdeaGenerator: true,
-
           // Additional Features
-          additionalFeatures: true,
+          featuresList: true,
+          features: true,
         },
       });
+
 
       const formattedPackages = packages.map((pkg) => ({
         ...pkg,
@@ -467,33 +429,7 @@ export class SubscriptionService {
             limit: pkg.monthlyWordLimit,
             description: `${pkg.monthlyWordLimit.toLocaleString()} words per month`,
           },
-          linkedin: {
-            accounts: {
-              limit: pkg.linkedInAccountLimit,
-              description: `${pkg.linkedInAccountLimit} LinkedIn ${pkg.linkedInAccountLimit === 1 ? 'account' : 'accounts'}`,
-            },
-            posts: {
-              limit: pkg.linkedInPostLimit,
-              description: `${pkg.linkedInPostLimit} posts per month`,
-            },
-            media: {
-              images: pkg.linkedInImageLimit,
-              videos: pkg.linkedInVideoLimit,
-            },
-          },
-
-          core: [
-            pkg.viralPostGeneration && 'Viral Post Generation',
-            pkg.aiStudio && 'AI Studio',
-            pkg.postIdeaGenerator && 'Post Idea Generator',
-          ].filter(Boolean),
-          additional: Object.entries(pkg.additionalFeatures || {})
-            .filter(([_, value]) => value === true)
-            .map(([key]) =>
-              key
-                .replace(/([A-Z])/g, ' $1')
-                .replace(/^./, (str) => str.toUpperCase()),
-            ),
+          features: pkg.featuresList,
         },
         billing: {
           price: pkg.price,
@@ -607,11 +543,6 @@ export class SubscriptionService {
         nextWordResetDate: nextResetDate,
         nextPostResetDate: nextResetDate,
         monthlyWordLimit: package_.monthlyWordLimit,
-        linkedInAccountLimit: package_.linkedInAccountLimit,
-        linkedInPostLimit: package_.linkedInPostLimit,
-        viralPostGeneration: package_.viralPostGeneration,
-        aiStudio: package_.aiStudio,
-        postIdeaGenerator: package_.postIdeaGenerator,
         billingCycle: package_.type,
         currency: 'USD',
         renewalPrice:
