@@ -19,6 +19,7 @@ import { IsSubscribed } from 'src/shared/decorators/is-subscribed.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { multerUploadConfig } from 'src/shared/configs/multer-upload.config';
 import { UpdateTimeSlotsDto } from './dto/time-slot.dto';
+import { GenerateAndCreateDraftDto } from './dto/generate-and-create-draft.dto';
 
 @Controller('content-posting')
 export class ContentPostingController {
@@ -168,5 +169,17 @@ export class ContentPostingController {
     @Body('workspaceId') workspaceId: string,
   ) {
     return this.contentPostingService.shuffleQueue(userInfo.id, workspaceId);
+  }
+
+  @Post('super-generator')
+  @IsSubscribed()
+  async superGenerator(
+    @UserInfo() userInfo: User,
+    @Body() generateAndCreateDraftDto: GenerateAndCreateDraftDto,
+  ) {
+    return this.contentPostingService.superGenerator(
+      userInfo.id,
+      generateAndCreateDraftDto,
+    );
   }
 }

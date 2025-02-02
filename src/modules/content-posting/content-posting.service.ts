@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateOrUpdateDraftPostDto } from './dto/create-draft-post.dto';
+import {
+  CreateOrUpdateDraftPostDto,
+  PostType,
+} from './dto/create-draft-post.dto';
 import { ResponseModel } from 'src/shared/models/response.model';
 import { successResponse, errorResponse } from 'src/shared/helpers/functions';
 import { coreConstant } from 'src/shared/helpers/coreConstant';
-import { PostTimeSlot, User } from '@prisma/client';
+import { PostTimeSlot, User, Prisma } from '@prisma/client';
 import {
   paginatedQuery,
   PaginationOptions,
@@ -18,14 +21,16 @@ import {
   deleteFileFromS3,
 } from 'src/shared/configs/multer-upload.config';
 import { TimeSlotData, TimeSlotGroup } from './dto/time-slot.dto';
-import { Prisma } from '@prisma/client';
 import { TimeSlotSettingsDto } from './dto/time-slot-settings.dto';
+import { GenerateAndCreateDraftDto } from './dto/generate-and-create-draft.dto';
+import { AiContentService } from '../ai-content/ai-content.service';
 
 @Injectable()
 export class ContentPostingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly linkedInService: LinkedInService,
+    private readonly aiContentService: AiContentService,
   ) {}
 
   async getPosts(
@@ -1582,6 +1587,36 @@ export class ContentPostingService {
     } catch (error) {
       console.error('Error shuffling queue:', error);
       return errorResponse(`Failed to shuffle queue: ${error.message}`);
+    }
+  }
+
+  async superGenerator(
+    userId: string,
+    dto: GenerateAndCreateDraftDto,
+  ): Promise<ResponseModel> {
+    try {
+      // Generate the content using AI
+      const generatedContent =
+        await this.aiContentService.generateLinkedInPosts(userId, {
+          prompt: dto.prompt,
+          language: dto.language,
+          tone: dto.tone,
+          postLength: dto.postLength,
+          category: dto.category,
+        });
+
+      if (!generatedContent.success) {
+        return errorResponse(
+          generatedContent.message || 'Failed to generate content',
+        );
+      }
+
+      return successResponse(
+        'AI post generated successfully',
+        generatedContent.data,
+      );
+    } catch (error) {
+      return errorResponse(`Failed to generate content: ${error.message}`);
     }
   }
 }
