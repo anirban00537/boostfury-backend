@@ -1,7 +1,7 @@
 export const coreConstant = {
   USER_ROLE_ADMIN: 1,
   USER_ROLE_USER: 2,
-  COMMON_PASSWORD: 'r4abbit5onthe4moon^33%%%%%',
+  COMMON_PASSWORD: 'r4abbit5onthe4moo333456300^33%%%%%',
   STATUS_INACTIVE: 0,
   STATUS_ACTIVE: 1,
   STATUS_PENDING: 2,

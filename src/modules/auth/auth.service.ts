@@ -146,6 +146,31 @@ export class AuthService {
     }
   }
 
+  async adminLogin(payload: LoginCredentialsDto): Promise<ResponseModel> {
+    try {
+      const user = await this.validateUser(payload.email, payload.password);
+      if (user.role !== coreConstant.USER_ROLE_ADMIN) {
+        return errorResponse('Invalid email or password');
+      }
+      const data = { sub: user.id, email: user.email };
+
+      const accessToken = await this.generateAccessToken(data);
+      const refreshToken = await this.createRefreshToken({
+        sub: data.sub,
+        email: data.email,
+      });
+
+      return successResponse('Login successful', {
+        accessToken,
+        refreshToken,
+        user,
+      });
+    } catch (err) {
+      return errorResponse('Invalid email or password');
+    }
+
+  }
+
   async refreshToken(refreshToken: string, browserInfo?: string): Promise<any> {
     try {
       const refreshTokenContent: RefreshTokenPayload =

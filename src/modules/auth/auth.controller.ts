@@ -67,6 +67,12 @@ export class AuthController {
     return this.authService.login(payload, browserInfo);
   }
 
+  @Public()
+  @Post('admin-login')
+  adminLogin(@Body() payload: LoginCredentialsDto): Promise<ResponseModel> {
+    return this.authService.adminLogin(payload);
+  }
+
   @Post('token-refresh')
   async refreshToken(
     @Body() { refreshToken }: RefreshTokenDto,
