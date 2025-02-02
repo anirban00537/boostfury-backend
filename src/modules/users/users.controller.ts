@@ -42,6 +42,12 @@ export class UserController {
     return successResponse('Response successfully', user);
   }
 
+  @IsAdmin()
+  @Get('admin/dashboard')
+  getAdminDashboardData(): Promise<ResponseModel> {
+    return this.userService.getAdminDashboardData();
+  }
+
   /** Creates a new user */
   @IsAdmin()
   @Post('create-user')

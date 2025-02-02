@@ -325,6 +325,148 @@ export class UsersService {
       processException(error);
     }
   }
+
+  async getAdminDashboardData(): Promise<ResponseModel> {
+    try {
+      const [
+        totalUsers,
+        activeUsers,
+        totalSubscriptions,
+        activeSubscriptions,
+        trialSubscriptions,
+        totalWordGeneration,
+        packageStats,
+        recentUsers,
+        recentSubscriptions,
+        usersByLoginProvider,
+        subscriptionsByType,
+      ] = await Promise.all([
+        // Total users count
+        this.prisma.user.count(),
+
+        // Active users count
+        this.prisma.user.count({
+          where: { status: coreConstant.STATUS_ACTIVE },
+        }),
+
+        // Total subscriptions
+        this.prisma.subscription.count(),
+
+        // Active subscriptions
+        this.prisma.subscription.count({
+          where: { status: 'active' },
+        }),
+
+        // Trial subscriptions
+        this.prisma.subscription.count({
+          where: { isTrial: true },
+        }),
+
+        // Total word generation usage
+        this.prisma.subscription.aggregate({
+          _sum: { wordsGenerated: true },
+        }),
+
+        // Package statistics
+        this.prisma.subscription.groupBy({
+          by: ['packageId'],
+          _count: true,
+          where: { status: 'active' },
+          orderBy: { packageId: 'asc' },
+        }),
+
+        // Recent users (last 5)
+        this.prisma.user.findMany({
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            email: true,
+            first_name: true,
+            last_name: true,
+            createdAt: true,
+            status: true,
+          },
+        }),
+
+        // Recent subscriptions (last 5)
+        this.prisma.subscription.findMany({
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: {
+                email: true,
+                first_name: true,
+                last_name: true,
+              },
+            },
+            package: {
+              select: {
+                name: true,
+                price: true,
+              },
+            },
+          },
+        }),
+
+        // Users by login provider
+        this.prisma.user.groupBy({
+          by: ['login_provider'],
+          _count: true,
+        }),
+
+        // Subscriptions by type (monthly, yearly, lifetime)
+        this.prisma.subscription.groupBy({
+          by: ['billingCycle'],
+          _count: true,
+          where: { status: 'active' },
+        }),
+      ]);
+
+      // Calculate percentages and growth
+      const userGrowthPercentage =
+        activeUsers > 0 ? (activeUsers / totalUsers) * 100 : 0;
+      const subscriptionRate =
+        totalUsers > 0 ? (activeSubscriptions / totalUsers) * 100 : 0;
+      const trialConversionRate =
+        trialSubscriptions > 0
+          ? ((activeSubscriptions - trialSubscriptions) / trialSubscriptions) *
+            100
+          : 0;
+
+      return successResponse('Admin dashboard data retrieved successfully', {
+        users: {
+          total: totalUsers,
+          active: activeUsers,
+          growthPercentage: userGrowthPercentage.toFixed(2),
+          byLoginProvider: usersByLoginProvider,
+          recent: recentUsers,
+        },
+        subscriptions: {
+          total: totalSubscriptions,
+          active: activeSubscriptions,
+          trial: trialSubscriptions,
+          conversionRate: trialConversionRate.toFixed(2),
+          subscriptionRate: subscriptionRate.toFixed(2),
+          byType: subscriptionsByType,
+          byPackage: packageStats,
+          recent: recentSubscriptions,
+        },
+        wordUsage: {
+          total: totalWordGeneration._sum.wordsGenerated || 0,
+        },
+        revenueMetrics: {
+          activeSubscriptions,
+          subscriptionsByType,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching admin dashboard data:', error);
+      return errorResponse('Failed to fetch admin dashboard data');
+    }
+  }
+
   async updateEmail(
     user: User,
     payload: {

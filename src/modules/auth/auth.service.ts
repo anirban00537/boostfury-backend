@@ -168,7 +168,6 @@ export class AuthService {
     } catch (err) {
       return errorResponse('Invalid email or password');
     }
-
   }
 
   async refreshToken(refreshToken: string, browserInfo?: string): Promise<any> {
@@ -803,6 +802,7 @@ export class AuthService {
         user_name: this.generateUniqueUsername(linkedinUser.email),
         password: '', // No password for social login
         email_verified: coreConstant.IS_VERIFIED,
+        status: coreConstant.STATUS_ACTIVE, // Set user as active
         login_provider: LOGIN_PROVIDER.LINKEDIN,
         linkedin_id: linkedinUser.linkedinId,
         linkedin_access_token: linkedinUser.accessToken,
