@@ -20,6 +20,7 @@ import { AiContentModule } from '../ai-content/ai-content.module';
 import { ContentPostingModule } from '../content-posting/content-posting.module';
 import { LinkedInModule } from '../linkedin/linkedin.module';
 import { SchedulingModule } from '../scheduling/scheduling.module';
+import { AdminModule } from '../admin/admin.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { SchedulingModule } from '../scheduling/scheduling.module';
     ContentPostingModule,
     LinkedInModule,
     SchedulingModule,
+    AdminModule,
   ],
   providers: [
     {
