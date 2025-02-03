@@ -213,7 +213,7 @@ export class SubscriptionService {
       // Get trial package - using the known ID
       const trialPackage = await this.prisma.package.findFirst({
         where: {
-          is_trial_package: true,
+          type: coreConstant.PACKAGE_TYPE.TRIAL,
           status: coreConstant.PACKAGE_STATUS.ACTIVE,
         },
       });
@@ -258,7 +258,7 @@ export class SubscriptionService {
           amount: trialPackage.monthlyWordLimit,
           type: coreConstant.WORD_TOKEN_LOG_TYPE.RESET,
           description: `Trial subscription activation with ${trialPackage.monthlyWordLimit} words`,
-          source: coreConstant.PACKAGE_TYPE.TRIAL,
+          source: coreConstant.PACKAGE_TYPE.MONTHLY,
         },
       });
 
@@ -285,6 +285,7 @@ export class SubscriptionService {
         orderBy: {
           price: 'asc',
         },
+
         select: {
           id: true,
           name: true,

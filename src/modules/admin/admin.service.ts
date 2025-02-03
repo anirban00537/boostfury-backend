@@ -96,8 +96,7 @@ export class AdminService {
     createPackageDto: CreatePackageDto,
   ): Promise<ResponseModel> {
     try {
-      // If this is a trial package, check if one already exists and validate trial duration
-      if (createPackageDto.is_trial_package) {
+      if (createPackageDto.type === coreConstant.PACKAGE_TYPE.TRIAL) {
         if (!createPackageDto.trial_duration_days) {
           return errorResponse(
             'Trial duration days is required for trial packages',
@@ -106,7 +105,7 @@ export class AdminService {
 
         const existingTrialPackage = await this.prisma.package.findFirst({
           where: {
-            is_trial_package: true,
+            type: coreConstant.PACKAGE_TYPE.TRIAL,
           },
         });
 

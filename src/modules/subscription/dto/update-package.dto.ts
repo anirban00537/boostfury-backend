@@ -30,10 +30,6 @@ export class UpdatePackageDto {
   @IsOptional()
   status?: PackageStatus;
 
-  @IsBoolean()
-  @IsOptional()
-  is_trial_package?: boolean;
-
   @IsNumber()
   @IsOptional()
   @Min(1)

@@ -36,6 +36,9 @@ export const coreConstant = {
   },
   PACKAGE_TYPE: {
     TRIAL: 'trial',
+    MONTHLY: 'monthly',
+    YEARLY: 'yearly',
+    LIFETIME: 'lifetime',
   },
 
   // Post Status

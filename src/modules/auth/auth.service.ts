@@ -123,7 +123,7 @@ export class AuthService {
       });
 
       const trialPackage = await this.prisma.package.findFirst({
-        where: { is_trial_package: true },
+        where: { type: coreConstant.PACKAGE_TYPE.TRIAL },
       });
 
       if (!subscription && trialPackage) {

@@ -11,12 +11,14 @@ import {
 
 // Define package types and status as enums for better type safety
 export enum PackageType {
+  TRIAL = 'trial',
   MONTHLY = 'monthly',
   YEARLY = 'yearly',
   LIFETIME = 'lifetime',
 }
 
 export enum PackageStatus {
+  TRIAL = 'trial',
   ACTIVE = 'active',
   INACTIVE = 'inactive',
   DEPRECATED = 'deprecated',
@@ -45,10 +47,6 @@ export class CreatePackageDto {
   @IsEnum(PackageStatus)
   @IsOptional()
   status: PackageStatus = PackageStatus.ACTIVE;
-
-  @IsBoolean()
-  @IsOptional()
-  is_trial_package: boolean = false;
 
   @IsNumber()
   @IsOptional()
