@@ -7,6 +7,11 @@ import { UpdatePackageDto } from '../subscription/dto/update-package.dto';
 import { ResponseModel } from 'src/shared/models/response.model';
 import { successResponse, errorResponse } from 'src/shared/helpers/functions';
 import { coreConstant } from 'src/shared/helpers/coreConstant';
+import {
+  PaginationOptions,
+  paginatedQuery,
+} from 'src/shared/utils/pagination.util';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
@@ -17,6 +22,74 @@ export class AdminService {
     private readonly subscriptionService: SubscriptionService,
     private readonly usersService: UsersService,
   ) {}
+
+  // User Management
+  async getAllUsers(options: PaginationOptions & { search?: string }) {
+    try {
+      const where = options.search
+        ? {
+            OR: [
+              { email: { contains: options.search, mode: 'insensitive' } },
+              { first_name: { contains: options.search, mode: 'insensitive' } },
+              { last_name: { contains: options.search, mode: 'insensitive' } },
+              { user_name: { contains: options.search, mode: 'insensitive' } },
+            ],
+          }
+        : {};
+
+      const result = await paginatedQuery<User>(
+        this.prisma,
+        'user',
+        where,
+        options,
+        {
+          // Include related data
+          Subscription: {
+            include: {
+              package: true,
+            },
+          },
+          UserBranding: true,
+          LinkedInProfiles: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatarUrl: true,
+              isDefault: true,
+            },
+          },
+        },
+      );
+
+      // Transform user data to exclude sensitive information
+      const sanitizedUsers = result.items.map((user) => ({
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        user_name: user.user_name,
+        photo: user.photo,
+        country: user.country,
+        status: user.status,
+        role: user.role,
+        is_subscribed: user.is_subscribed,
+        email_verified: user.email_verified,
+        createdAt: user.createdAt,
+        subscription: (user as any).Subscription,
+        branding: (user as any).UserBranding,
+        linkedInProfiles: (user as any).LinkedInProfiles,
+      }));
+
+      return successResponse('Users retrieved successfully', {
+        items: sanitizedUsers,
+        pagination: result.pagination,
+      });
+    } catch (error) {
+      this.logger.error(`Error retrieving users: ${error.message}`);
+      return errorResponse('Failed to retrieve users');
+    }
+  }
 
   // Package Management
   async createPackage(
@@ -34,13 +107,12 @@ export class AdminService {
         const existingTrialPackage = await this.prisma.package.findFirst({
           where: {
             is_trial_package: true,
-            status: { not: 'deprecated' },
           },
         });
 
         if (existingTrialPackage) {
           return errorResponse(
-            'A trial package already exists. Please update the existing one or deprecate it first.',
+            'Only one trial package can exist in the system. Please update the existing trial package instead of creating a new one.',
           );
         }
       }
@@ -127,9 +199,7 @@ export class AdminService {
       const existingPackage = await this.prisma.package.findUnique({
         where: { id },
         include: {
-          subscriptions: {
-            where: { status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE },
-          },
+          subscriptions: true,
         },
       });
 
@@ -137,19 +207,25 @@ export class AdminService {
         return errorResponse('Package not found');
       }
 
-      // If package has active subscriptions, mark it as deprecated instead of deleting
+      // If package has any subscriptions (active or inactive), prevent deletion
       if (existingPackage.subscriptions.length > 0) {
-        const updatedPackage = await this.prisma.package.update({
-          where: { id },
-          data: { status: 'deprecated' },
-        });
-        return successResponse(
-          'Package marked as deprecated due to active subscriptions',
-          updatedPackage,
+        // If not already deprecated, mark it as deprecated
+        if (existingPackage.status !== 'deprecated') {
+          const updatedPackage = await this.prisma.package.update({
+            where: { id },
+            data: { status: 'deprecated' },
+          });
+          return errorResponse(
+            'Package cannot be deleted because it has subscriptions (current or past). It has been marked as deprecated instead.',
+            updatedPackage,
+          );
+        }
+        return errorResponse(
+          'Package cannot be deleted because it has subscriptions (current or past). It is already marked as deprecated.',
         );
       }
 
-      // Delete the package if no active subscriptions
+      // Delete the package if no subscriptions exist
       await this.prisma.package.delete({ where: { id } });
       return successResponse('Package deleted successfully');
     } catch (error) {

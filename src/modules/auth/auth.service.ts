@@ -125,7 +125,6 @@ export class AuthService {
       const trialPackage = await this.prisma.package.findFirst({
         where: { is_trial_package: true },
       });
-      console.log(trialPackage, 'here is trial package');
 
       if (!subscription && trialPackage) {
         await this.subscriptionService.createTrialSubscription(user.id);

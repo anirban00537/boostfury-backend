@@ -210,12 +210,6 @@ export class SubscriptionService {
 
   async createTrialSubscription(userId: string): Promise<ResponseModel> {
     try {
-      const now = new Date();
-      const trialDays = this.configService.get('TRIAL_DAYS') || 3;
-      const expirationDate = new Date(
-        now.getTime() + trialDays * 24 * 60 * 60 * 1000,
-      );
-
       // Get trial package - using the known ID
       const trialPackage = await this.prisma.package.findFirst({
         where: {
@@ -223,6 +217,12 @@ export class SubscriptionService {
           status: coreConstant.PACKAGE_STATUS.ACTIVE,
         },
       });
+
+      const now = new Date();
+      const trialDays = trialPackage.trial_duration_days || 3;
+      const expirationDate = new Date(
+        now.getTime() + trialDays * 24 * 60 * 60 * 1000,
+      );
 
       if (!trialPackage) {
         console.log('Trial package not found');
