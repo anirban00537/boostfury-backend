@@ -218,48 +218,56 @@ export class SubscriptionService {
         },
       });
 
+      if (!trialPackage) {
+        console.log('Trial package not found');
+        return errorResponse('Trial package not found');
+      }
+
+      // Check if the user already has a subscription, which means trial has already been used
+      const existingSubscription = await this.prisma.subscription.findUnique({
+        where: { userId },
+      });
+      if (existingSubscription) {
+        return errorResponse(
+          'User already has a subscription. Trial cannot be granted again.',
+        );
+      }
+
       const now = new Date();
       const trialDays = trialPackage.trial_duration_days || 3;
       const expirationDate = new Date(
         now.getTime() + trialDays * 24 * 60 * 60 * 1000,
       );
 
-      if (!trialPackage) {
-        console.log('Trial package not found');
-        return errorResponse('Trial package not found');
-      }
-
-      // Create subscription with trial settings
-      const subscription = await this.prisma.subscription.create({
-        data: {
-          user: {
-            connect: { id: userId },
+      // Wrap subscription and token log creation in a transaction to ensure both succeed or fail together
+      const subscription = await this.prisma.$transaction(async (tx) => {
+        const trialSubscription = await tx.subscription.create({
+          data: {
+            user: { connect: { id: userId } },
+            package: { connect: { id: trialPackage.id } },
+            status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
+            monthlyWordLimit: trialPackage.monthlyWordLimit,
+            wordsGenerated: 0,
+            endDate: expirationDate,
+            lastWordResetDate: now,
+            nextWordResetDate: expirationDate,
+            isTrial: true, // Mark as trial subscription
+            trialUsed: true, // Ensure trial is marked as used
           },
-          package: {
-            connect: { id: trialPackage.id }, // Using the fixed ID
-          },
-          status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
-          monthlyWordLimit: trialPackage.monthlyWordLimit,
-          wordsGenerated: 0,
-          endDate: expirationDate,
-          lastWordResetDate: now,
+        });
 
-          nextWordResetDate: expirationDate,
-          isTrial: true, // Mark as trial subscription
-        },
-      });
-
-      // Create initial token log
-      await this.prisma.wordTokenLog.create({
-        data: {
-          subscription: {
-            connect: { id: subscription.id },
+        // Create initial token log
+        await tx.wordTokenLog.create({
+          data: {
+            subscription: { connect: { id: trialSubscription.id } },
+            amount: trialPackage.monthlyWordLimit,
+            type: coreConstant.WORD_TOKEN_LOG_TYPE.RESET,
+            description: `Trial subscription activation with ${trialPackage.monthlyWordLimit} words`,
+            source: coreConstant.PACKAGE_TYPE.MONTHLY,
           },
-          amount: trialPackage.monthlyWordLimit,
-          type: coreConstant.WORD_TOKEN_LOG_TYPE.RESET,
-          description: `Trial subscription activation with ${trialPackage.monthlyWordLimit} words`,
-          source: coreConstant.PACKAGE_TYPE.MONTHLY,
-        },
+        });
+
+        return trialSubscription;
       });
 
       console.log(`Trial subscription created for user ${userId}`);
