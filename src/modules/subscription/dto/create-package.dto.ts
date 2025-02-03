@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsEnum,
   IsBoolean,
+  Min,
 } from 'class-validator';
 
 // Define package types and status as enums for better type safety
@@ -48,6 +49,11 @@ export class CreatePackageDto {
   @IsBoolean()
   @IsOptional()
   is_trial_package: boolean = false;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  trial_duration_days?: number;
 
   @IsNumber()
   @IsNotEmpty()
