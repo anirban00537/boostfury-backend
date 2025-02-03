@@ -618,30 +618,30 @@ export class AuthService {
         where: {
           profileId: profile.sub,
         },
-        include: {
-          user: {
-            select: {
-              email: true,
-            },
-          },
-        },
       });
 
       let linkedInProfile;
       if (existingProfile) {
+        // If profile exists, fetch the associated user separately
+        const associatedUser = await this.prisma.user.findUnique({
+          where: { id: existingProfile.userId },
+          select: { id: true, email: true },
+        });
+
         // Check if it's connected to a different user
-        if (existingProfile.userId !== user.id) {
+        if (associatedUser && existingProfile.userId !== user.id) {
           return errorResponse(
-            `This LinkedIn profile is already connected to another account (${existingProfile.user.email}). Please disconnect it first before connecting to a new account.`,
+            `This LinkedIn profile is already connected to another account (${associatedUser.email}). Please disconnect it first before connecting to a new account.`,
           );
         }
 
-        // If connected to same user, update the token and timezone
+        // If connected to same user or no associated user found, update the token
         linkedInProfile = await this.prisma.linkedInProfile.update({
           where: {
             profileId: profile.sub,
           },
           data: {
+            userId: user.id, // Ensure correct user association
             accessToken: accessToken,
             tokenExpiringAt: new Date(
               Date.now() + tokenResponse.data.expires_in * 1000,
