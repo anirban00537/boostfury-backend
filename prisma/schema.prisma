@@ -132,14 +132,14 @@ model Package {
   id String @id @default(cuid())
 
   // Basic Package Info
-  name        String // e.g., "Pro Plan", "Business Plan"
-  description String
-  type        String // "monthly" | "yearly" | "lifetime"
-  status      String @default("active") // "active" | "inactive" | "deprecated"
-
+  name             String // e.g., "Pro Plan", "Business Plan"
+  description      String
+  type             String // "monthly" | "yearly" | "lifetime"
+  status           String  @default("active") // "active" | "inactive" | "deprecated"
+  is_trial_package Boolean @default(false)
   // Pricing
-  price    Float
-  currency String @default("USD")
+  price            Float
+  currency         String  @default("USD")
 
   // Lemon Squeezy Integration
   variantId String @unique // Lemon Squeezy variant ID

@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsArray,
   IsEnum,
+  IsBoolean,
 } from 'class-validator';
 import {
   PackageType,
@@ -27,6 +28,10 @@ export class UpdatePackageDto {
   @IsEnum(PackageStatus)
   @IsOptional()
   status?: PackageStatus;
+
+  @IsBoolean()
+  @IsOptional()
+  is_trial_package?: boolean;
 
   @IsNumber()
   @IsOptional()

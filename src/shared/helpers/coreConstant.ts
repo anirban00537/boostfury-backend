@@ -25,6 +25,11 @@ export const coreConstant = {
     CANCELLED: 'cancelled',
     PENDING: 'pending',
   },
+  PACKAGE_STATUS: {
+    ACTIVE: 'active',
+    INACTIVE: 'inactive',
+    DEPRECATED: 'deprecated',
+  },
   WORD_TOKEN_LOG_TYPE: {
     USAGE: 'USAGE',
     RESET: 'RESET',

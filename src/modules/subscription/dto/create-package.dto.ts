@@ -5,6 +5,7 @@ import {
   IsArray,
   IsOptional,
   IsEnum,
+  IsBoolean,
 } from 'class-validator';
 
 // Define package types and status as enums for better type safety
@@ -43,6 +44,10 @@ export class CreatePackageDto {
   @IsEnum(PackageStatus)
   @IsOptional()
   status: PackageStatus = PackageStatus.ACTIVE;
+
+  @IsBoolean()
+  @IsOptional()
+  is_trial_package: boolean = false;
 
   @IsNumber()
   @IsNotEmpty()

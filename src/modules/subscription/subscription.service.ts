@@ -139,128 +139,6 @@ export class SubscriptionService {
     }
   }
 
-  async giveSubscription(
-    email: string,
-    durationInMonths: number,
-  ): Promise<ResponseModel> {
-    try {
-      const user = await this.prisma.user.findUnique({
-        where: { email },
-      });
-
-      if (!user) {
-        return errorResponse('User not found');
-      }
-
-      // Get Pro package
-      const proPackage = await this.prisma.package.findFirst({
-        where: { name: 'Pro' },
-      });
-
-      if (!proPackage) {
-        return errorResponse('Pro package not found');
-      }
-
-      const now = new Date();
-      const endDate = new Date(now);
-      endDate.setMonth(endDate.getMonth() + durationInMonths);
-
-      const nextResetDate = new Date(now);
-      nextResetDate.setMonth(nextResetDate.getMonth() + 1);
-
-      const subscription = await this.prisma.subscription.upsert({
-        where: { userId: user.id },
-        create: {
-          userId: user.id,
-          packageId: proPackage.id,
-          status: 'active',
-          orderId: `ADMIN_${Date.now()}`,
-          startDate: now,
-          endDate,
-          nextWordResetDate: nextResetDate,
-          monthlyWordLimit: proPackage.monthlyWordLimit,
-
-          billingCycle: 'monthly',
-          currency: proPackage.currency,
-        },
-        update: {
-          packageId: proPackage.id,
-          status: 'active',
-          endDate,
-          monthlyWordLimit: proPackage.monthlyWordLimit,
-        },
-      });
-
-      return successResponse('Subscription given successfully', {
-        subscription,
-        user: {
-          id: user.id,
-          email: user.email,
-        },
-      });
-    } catch (error) {
-      return errorResponse(`Failed to give subscription: ${error.message}`);
-    }
-  }
-
-  async getAllSubscriptions(): Promise<ResponseModel> {
-    try {
-      const subscriptions = await this.prisma.subscription.findMany({
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              first_name: true,
-              last_name: true,
-              user_name: true,
-            },
-          },
-          package: {
-            select: {
-              name: true,
-              type: true,
-              price: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
-
-      const now = new Date();
-      const formattedSubscriptions = subscriptions.map((sub) => ({
-        id: sub.id,
-        status: sub.status,
-        endDate: sub.endDate,
-        startDate: sub.startDate,
-        package: sub.package,
-        user: sub.user,
-        isActive: sub.endDate > now,
-        isTrial: sub.isTrial,
-        usage: {
-          words: {
-            used: sub.wordsGenerated,
-            limit: sub.monthlyWordLimit,
-          },
-        },
-        daysRemaining: Math.ceil(
-          (sub.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-        ),
-      }));
-
-      return successResponse('Subscriptions retrieved successfully', {
-        subscriptions: formattedSubscriptions,
-        total: formattedSubscriptions.length,
-        activeSubscriptions: formattedSubscriptions.filter((s) => s.isActive)
-          .length,
-      });
-    } catch (error) {
-      return errorResponse(`Failed to get subscriptions: ${error.message}`);
-    }
-  }
-
   async handleSubscriptionUpdated(evt: any) {
     console.log('Processing subscription updated event');
     try {
@@ -339,8 +217,11 @@ export class SubscriptionService {
       );
 
       // Get trial package - using the known ID
-      const trialPackage = await this.prisma.package.findUnique({
-        where: { id: coreConstant.PACKAGE_TYPE.TRIAL },
+      const trialPackage = await this.prisma.package.findFirst({
+        where: {
+          is_trial_package: true,
+          status: coreConstant.PACKAGE_STATUS.ACTIVE,
+        },
       });
 
       if (!trialPackage) {
@@ -355,13 +236,14 @@ export class SubscriptionService {
             connect: { id: userId },
           },
           package: {
-            connect: { id: 'trial' }, // Using the fixed ID
+            connect: { id: trialPackage.id }, // Using the fixed ID
           },
           status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE,
           monthlyWordLimit: trialPackage.monthlyWordLimit,
           wordsGenerated: 0,
           endDate: expirationDate,
           lastWordResetDate: now,
+
           nextWordResetDate: expirationDate,
           isTrial: true, // Mark as trial subscription
         },
@@ -420,7 +302,6 @@ export class SubscriptionService {
           features: true,
         },
       });
-
 
       const formattedPackages = packages.map((pkg) => ({
         ...pkg,

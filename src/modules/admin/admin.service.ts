@@ -23,6 +23,22 @@ export class AdminService {
     createPackageDto: CreatePackageDto,
   ): Promise<ResponseModel> {
     try {
+      // If this is a trial package, check if one already exists
+      if (createPackageDto.is_trial_package) {
+        const existingTrialPackage = await this.prisma.package.findFirst({
+          where: {
+            is_trial_package: true,
+            status: { not: 'deprecated' },
+          },
+        });
+
+        if (existingTrialPackage) {
+          return errorResponse(
+            'A trial package already exists. Please update the existing one or deprecate it first.',
+          );
+        }
+      }
+
       // Check if package with same name or variantId exists
       const existingPackage = await this.prisma.package.findFirst({
         where: {
