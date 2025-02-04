@@ -202,6 +202,7 @@ export class SubscriptionService {
         orderId: subscriptionData.order_id?.toString(),
         billingCycle: subscription.package?.type || 'monthly',
         isTrial: false, // Since this is an update from LemonSqueezy, it's not a trial
+        wordsGenerated: 0, // Reset words generated count
       };
 
       if (packageId && packageId !== subscription.packageId) {
