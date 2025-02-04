@@ -1,4 +1,4 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { User, Package, Subscription } from '@prisma/client';
@@ -9,7 +9,6 @@ import { coreConstant } from 'src/shared/helpers/coreConstant';
 
 @Injectable()
 export class SubscriptionService {
-  private readonly logger = new Logger(SubscriptionService.name);
   private readonly apiKey: string;
   private readonly storeId: string;
 
@@ -61,7 +60,7 @@ export class SubscriptionService {
         usage: usageData,
       });
     } catch (error) {
-      this.logger.error(`Error checking subscription: ${error.message}`);
+      console.error(`Error checking subscription: ${error.message}`);
       return errorResponse('Failed to check subscription status');
     }
   }
@@ -158,8 +157,45 @@ export class SubscriptionService {
         throw new Error('Subscription not found');
       }
 
+      const subscriptionData = evt.data.attributes;
+      
+      // Validate and parse dates
+      if (!subscriptionData.created_at) {
+        throw new Error('Missing created_at in subscription data');
+      }
+      const startDate = new Date(subscriptionData.created_at);
+      if (isNaN(startDate.getTime())) {
+        throw new Error('Invalid created_at date format');
+      }
+
+      // Get the end date from renews_at
+      let endDate: Date | null = null;
+      if (subscriptionData.renews_at) {
+        endDate = new Date(subscriptionData.renews_at);
+        if (isNaN(endDate.getTime())) {
+          throw new Error('Invalid renews_at date format');
+        }
+        // Ensure end date is after start date
+        if (endDate <= startDate) {
+          throw new Error('End date must be after start date');
+        }
+      }
+
+      // Calculate next reset date (always one month from start, but never after end date)
+      const nextResetDate = new Date(startDate);
+      nextResetDate.setMonth(nextResetDate.getMonth() + 1);
+      if (endDate && nextResetDate > endDate) {
+        nextResetDate.setTime(endDate.getTime());
+      }
+
       const updateData: any = {
-        status: evt.data.attributes.status,
+        status: subscriptionData.status,
+        startDate,
+        endDate,
+        nextWordResetDate: nextResetDate,
+        nextPostResetDate: nextResetDate,
+        renewalPrice: subscriptionData.first_subscription_item?.price || 0,
+        subscriptionId: evt.data.id,
       };
 
       if (packageId && packageId !== subscription.packageId) {
@@ -171,16 +207,26 @@ export class SubscriptionService {
           Object.assign(updateData, {
             packageId,
             monthlyWordLimit: newPackage.monthlyWordLimit,
+            billingCycle: newPackage.type,
           });
         }
       }
 
-      await this.prisma.subscription.update({
+      const updatedSubscription = await this.prisma.subscription.update({
         where: { userId },
         data: updateData,
       });
+
+      console.log(`Updated subscription for user ${userId}:`, {
+        id: updatedSubscription.id,
+        status: updatedSubscription.status,
+        startDate: updatedSubscription.startDate,
+        endDate: updatedSubscription.endDate,
+      });
+
+      return updatedSubscription;
     } catch (error) {
-      this.logger.error('Error handling subscription update:', error);
+      console.error('Error handling subscription update:', error);
       throw error;
     }
   }
@@ -203,7 +249,7 @@ export class SubscriptionService {
         },
       });
     } catch (error) {
-      this.logger.error('Error handling subscription cancellation:', error);
+      console.error('Error handling subscription cancellation:', error);
       throw error;
     }
   }
@@ -276,7 +322,7 @@ export class SubscriptionService {
         subscription,
       );
     } catch (error) {
-      this.logger.error('Error creating trial subscription:', error);
+      console.error('Error creating trial subscription:', error);
       return errorResponse('Failed to create trial subscription');
     }
   }
@@ -341,7 +387,7 @@ export class SubscriptionService {
         currencies: [...new Set(packages.map((pkg) => pkg.currency))],
       });
     } catch (error) {
-      this.logger.error('Error retrieving pricing:', error);
+      console.error('Error retrieving pricing:', error);
       return errorResponse('Failed to retrieve pricing information');
     }
   }
@@ -357,8 +403,8 @@ export class SubscriptionService {
       }
 
       // Log payment event details for debugging
-      this.logger.log(`Received payment success event for userId: ${userId}`);
-      this.logger.log(`Payment status: ${status}, Amount: ${total_usd} USD`);
+      console.log(`Received payment success event for userId: ${userId}`);
+      console.log(`Payment status: ${status}, Amount: ${total_usd} USD`);
 
       // Find the existing subscription based on userId and subscription_id
       const subscription = await this.prisma.subscription.findUnique({
@@ -379,7 +425,7 @@ export class SubscriptionService {
           },
         });
 
-        this.logger.log(`Subscription for userId ${userId} marked as active`);
+        console.log(`Subscription for userId ${userId} marked as active`);
 
         return successResponse(
           'Subscription activated successfully',
@@ -389,7 +435,7 @@ export class SubscriptionService {
         throw new Error(`Payment failed for subscription: ${subscription_id}`);
       }
     } catch (error) {
-      this.logger.error(
+      console.error(
         'Error processing subscription payment success:',
         error,
       );
@@ -480,7 +526,7 @@ export class SubscriptionService {
 
       let subscription;
       if (existingSubscription) {
-        this.logger.log('Updating existing subscription:', existingSubscription.id);
+        console.log('Updating existing subscription:', existingSubscription.id);
         subscription = await this.prisma.subscription.update({
           where: { id: existingSubscription.id },
           data: {
@@ -489,7 +535,7 @@ export class SubscriptionService {
           },
         });
       } else {
-        this.logger.log('Creating new subscription');
+        console.log('Creating new subscription');
         subscription = await this.prisma.subscription.create({
           data: {
             ...subscriptionDetails,
@@ -499,13 +545,13 @@ export class SubscriptionService {
         });
       }
 
-      this.logger.log('Subscription created with status pending:', subscription.id);
+      console.log('Subscription created with status pending:', subscription.id);
       return successResponse(
         `Subscription ${existingSubscription ? 'updated' : 'created'} successfully`,
         subscription,
       );
     } catch (error) {
-      this.logger.error('Error processing subscription creation:', error);
+      console.error('Error processing subscription creation:', error);
       return errorResponse(`Failed to process subscription: ${error.message}`);
     }
   }
@@ -528,7 +574,7 @@ export class SubscriptionService {
       }
 
       // Log the event for debugging purposes
-      this.logger.log(`Processing expired subscription for userId: ${userId}`);
+      console.log(`Processing expired subscription for userId: ${userId}`);
 
       // Update the subscription status to "expired"
       const updatedSubscription = await this.prisma.subscription.update({
@@ -539,7 +585,7 @@ export class SubscriptionService {
         },
       });
 
-      this.logger.log(
+      console.log(
         `Subscription for userId ${userId} marked as expired successfully`,
       );
 
@@ -549,7 +595,7 @@ export class SubscriptionService {
         updatedSubscription,
       );
     } catch (error) {
-      this.logger.error('Error handling expired subscription event:', error);
+      console.error('Error handling expired subscription event:', error);
       return errorResponse(
         `Failed to process expired subscription: ${error.message}`,
       );
@@ -603,7 +649,7 @@ export class SubscriptionService {
       });
     } catch (error) {
       console.log('Error response from LemonSqueezy API:', error.response.data);
-      this.logger.error('Error cancelling subscription:', error);
+      console.error('Error cancelling subscription:', error);
       return errorResponse(`Failed to cancel subscription: ${error.message}`);
     }
   }
