@@ -399,7 +399,6 @@ export class SubscriptionService {
     }
   }
 
-  // Create or update subscription (do not set status to active here)
   async handleSubscriptionCreated(evt: any): Promise<any> {
     try {
       const { userId, packageId } = evt.meta.custom_data || {};
@@ -421,23 +420,57 @@ export class SubscriptionService {
       });
 
       const subscriptionData = evt.data.attributes;
+      
+      // Validate and parse the creation date
+      if (!subscriptionData.created_at) {
+        throw new Error('Missing created_at in subscription data');
+      }
       const startDate = new Date(subscriptionData.created_at);
-      const renewalDate = new Date(subscriptionData.renews_at);
+      if (isNaN(startDate.getTime())) {
+        throw new Error('Invalid created_at date format');
+      }
+
+      // Validate and parse the renewal date if present
+      let endDate: Date;
+      if (subscriptionData.renews_at) {
+        endDate = new Date(subscriptionData.renews_at);
+        if (isNaN(endDate.getTime())) {
+          throw new Error('Invalid renews_at date format');
+        }
+        // Ensure end date is after start date
+        if (endDate <= startDate) {
+          throw new Error('End date must be after start date');
+        }
+      } else {
+        endDate = new Date(startDate);
+        if (package_.type === 'monthly') {
+          endDate.setMonth(endDate.getMonth() + 1);
+        } else if (package_.type === 'yearly') {
+          endDate.setFullYear(endDate.getFullYear() + 1);
+        } else {
+          // For lifetime or other types, set a far future date
+          endDate.setFullYear(endDate.getFullYear() + 100);
+        }
+      }
+
+      // Calculate next reset date (always one month from start, but never after end date)
       const nextResetDate = new Date(startDate);
       nextResetDate.setMonth(nextResetDate.getMonth() + 1);
+      if (nextResetDate > endDate) {
+        nextResetDate.setTime(endDate.getTime());
+      }
 
       const subscriptionDetails = {
-        orderId: subscriptionData.order_id.toString(),
+        orderId: subscriptionData.order_id?.toString(),
         status: coreConstant.SUBSCRIPTION_STATUS.PENDING,
         startDate,
-        endDate: renewalDate,
+        endDate,
         nextWordResetDate: nextResetDate,
         nextPostResetDate: nextResetDate,
         monthlyWordLimit: package_.monthlyWordLimit,
         billingCycle: package_.type,
         currency: 'USD',
-        renewalPrice:
-          parseFloat(subscriptionData.first_subscription_item?.price_id) || 0,
+        renewalPrice: subscriptionData.first_subscription_item?.price || 0,
         wordsGenerated: 0,
         linkedInAccountsUsed: 0,
         linkedInPostsUsed: 0,
@@ -447,7 +480,7 @@ export class SubscriptionService {
 
       let subscription;
       if (existingSubscription) {
-        console.log('Updating existing subscription:', existingSubscription.id);
+        this.logger.log('Updating existing subscription:', existingSubscription.id);
         subscription = await this.prisma.subscription.update({
           where: { id: existingSubscription.id },
           data: {
@@ -456,7 +489,7 @@ export class SubscriptionService {
           },
         });
       } else {
-        console.log('Creating new subscription');
+        this.logger.log('Creating new subscription');
         subscription = await this.prisma.subscription.create({
           data: {
             ...subscriptionDetails,
@@ -466,16 +499,17 @@ export class SubscriptionService {
         });
       }
 
-      console.log('Subscription created with status pending:', subscription.id);
+      this.logger.log('Subscription created with status pending:', subscription.id);
       return successResponse(
         `Subscription ${existingSubscription ? 'updated' : 'created'} successfully`,
         subscription,
       );
     } catch (error) {
-      console.error('Error processing subscription creation:', error);
+      this.logger.error('Error processing subscription creation:', error);
       return errorResponse(`Failed to process subscription: ${error.message}`);
     }
   }
+
   async handleSubscriptionExpired(evt: any): Promise<any> {
     try {
       const customData = evt.meta.custom_data || {};
@@ -521,6 +555,7 @@ export class SubscriptionService {
       );
     }
   }
+
   async cancelSubscription(userId: string): Promise<ResponseModel> {
     try {
       const subscription = await this.prisma.subscription.findUnique({
