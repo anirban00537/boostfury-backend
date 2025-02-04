@@ -151,6 +151,9 @@ export class SubscriptionService {
 
       const subscription = await this.prisma.subscription.findUnique({
         where: { userId },
+        include: {
+          package: true
+        }
       });
 
       if (!subscription) {
@@ -193,9 +196,12 @@ export class SubscriptionService {
         startDate,
         endDate,
         nextWordResetDate: nextResetDate,
-        nextPostResetDate: nextResetDate,
+        lastWordResetDate: startDate, // Reset the last word reset date to start date
         renewalPrice: subscriptionData.first_subscription_item?.price || 0,
         subscriptionId: evt.data.id,
+        orderId: subscriptionData.order_id?.toString(),
+        billingCycle: subscription.package?.type || 'monthly',
+        isTrial: false, // Since this is an update from LemonSqueezy, it's not a trial
       };
 
       if (packageId && packageId !== subscription.packageId) {
@@ -208,13 +214,19 @@ export class SubscriptionService {
             packageId,
             monthlyWordLimit: newPackage.monthlyWordLimit,
             billingCycle: newPackage.type,
+            features: newPackage.features || [],
           });
         }
       }
 
+      console.log('Updating subscription with data:', updateData);
+
       const updatedSubscription = await this.prisma.subscription.update({
         where: { userId },
         data: updateData,
+        include: {
+          package: true
+        }
       });
 
       console.log(`Updated subscription for user ${userId}:`, {
@@ -222,6 +234,9 @@ export class SubscriptionService {
         status: updatedSubscription.status,
         startDate: updatedSubscription.startDate,
         endDate: updatedSubscription.endDate,
+        nextWordResetDate: updatedSubscription.nextWordResetDate,
+        monthlyWordLimit: updatedSubscription.monthlyWordLimit,
+        package: updatedSubscription.package?.name
       });
 
       return updatedSubscription;
