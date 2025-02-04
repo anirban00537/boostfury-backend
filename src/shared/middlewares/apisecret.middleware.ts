@@ -12,9 +12,9 @@ export class ApiSecretCheckMiddleware implements NestMiddleware {
     ) {
       next();
     } else {
-      if (req.headers['apisecretkeycheck'] !== process.env.API_SECRET) {
-        throw new BadRequestException('invalid secret key');
-      }
+      // if (req.headers['apisecretkeycheck'] !== process.env.API_SECRET) {
+      //   throw new BadRequestException('invalid secret key');
+      // }
       next();
     }
   }

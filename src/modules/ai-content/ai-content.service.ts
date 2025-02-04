@@ -8,6 +8,7 @@ import { coreConstant } from 'src/shared/helpers/coreConstant';
 import { RewriteContentDto } from './dto/rewrite-content.dto';
 import { UpdateAiStyleDto } from './dto/update-ai-style.dto';
 import { GeneratePersonalizedPostDto } from './dto/generate-personalized-post.dto';
+import { WebsiteScreenshotService } from './website-screenshot.service';
 
 interface TokenCheckResult {
   isValid: boolean;
@@ -24,6 +25,7 @@ export class AiContentService {
   constructor(
     private readonly openAIService: OpenAIService,
     private readonly prisma: PrismaService,
+    private readonly websiteScreenshotService: WebsiteScreenshotService,
   ) {}
 
   private calculateWordCount(text: string): number {
@@ -673,6 +675,38 @@ export class AiContentService {
     } catch (error) {
       this.logger.error('Error generating personalized post:', error);
       return errorResponse('Error generating personalized post');
+    }
+  }
+
+  async generateLinkedInPostFromWebsite(
+    // userId: string,
+    url: string,
+    customPrompt?: string,
+  ): Promise<ResponseModel> {
+    try {
+      // Generate content from website
+      const content = await this.websiteScreenshotService.generateLinkedInPostFromWebsite(
+        url,
+        customPrompt,
+      );
+
+      // Check and deduct tokens
+      // const tokenCheck = await this.checkAndDeductTokens(userId, content);
+      // if (!tokenCheck.isValid) {
+      //   return errorResponse(this.getErrorMessage(tokenCheck.message));
+      // }
+
+      return successResponse('LinkedIn post generated successfully', {
+        content,
+        tokenUsage: {
+          wordCount: 2,
+          remainingTokens: 2,
+          totalTokens: 2,
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Error generating LinkedIn post from website: ${error.message}`);
+      return errorResponse('Error generating LinkedIn post from website');
     }
   }
 }

@@ -8,6 +8,9 @@ import { IsSubscribed } from 'src/shared/decorators/is-subscribed.decorator';
 import { RewriteContentDto } from './dto/rewrite-content.dto';
 import { UpdateAiStyleDto } from './dto/update-ai-style.dto';
 import { GeneratePersonalizedPostDto } from './dto/generate-personalized-post.dto';
+import { GenerateWebsitePostDto } from './dto/generate-website-post.dto';
+import { ApiOperation } from '@nestjs/swagger';
+import { Public } from 'src/shared/decorators/public.decorator';
 
 @Controller('ai-content')
 export class AiContentController {
@@ -63,5 +66,20 @@ export class AiContentController {
     @Body() dto: GeneratePersonalizedPostDto,
   ): Promise<ResponseModel> {
     return this.aiContentService.generatePersonalizedPost(user.id, dto);
+  }
+
+  @Post('generate-website-post')
+  @Public()
+  // @IsSubscribed()
+  // @ApiOperation({ summary: 'Generate LinkedIn post from a website' })
+  generateWebsitePost(
+    // @UserInfo() user: User,
+    @Body() dto: GenerateWebsitePostDto,
+  ): Promise<ResponseModel> {
+    return this.aiContentService.generateLinkedInPostFromWebsite(
+      // user.id.toString(),
+      dto.url,
+      dto.customPrompt,
+    );
   }
 }

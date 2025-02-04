@@ -419,4 +419,61 @@ Make it engaging and professional while maintaining brevity.
       throw error;
     }
   }
+
+  async generateContentFromScreenshot(
+    imageBase64: string,
+    customPrompt?: string,
+  ): Promise<string> {
+    try {
+      const basePrompt = `You are a professional LinkedIn content creator. Your task is to analyze this website screenshot and create an engaging LinkedIn post.
+
+Key Guidelines:
+1. Start with a compelling hook or question
+2. Highlight the website's unique value proposition and key features
+3. Use professional but conversational tone
+4. Include specific benefits or solutions
+5. End with a clear call-to-action
+6. Keep it concise and impactful (2-3 paragraphs)
+7. Use emojis sparingly but effectively
+8. Add relevant hashtags (3-5)
+
+Format the post with proper spacing and line breaks for better readability.`;
+
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: basePrompt,
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: customPrompt || "Based on this website screenshot, create an engaging LinkedIn post following the guidelines above.",
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/png;base64,${imageBase64}`,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 1000,
+        store: true,
+      });
+
+      if (!response.choices?.[0]?.message?.content) {
+        throw new Error('No content generated from OpenAI');
+      }
+
+      return response.choices[0].message.content;
+    } catch (error) {
+      this.logger.error(`Error generating content from screenshot: ${error.message}`);
+      throw error;
+    }
+  }
 }
