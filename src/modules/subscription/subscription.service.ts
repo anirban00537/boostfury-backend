@@ -317,10 +317,11 @@ export class SubscriptionService {
         features: {
           wordGeneration: {
             limit: pkg.monthlyWordLimit,
-            description: `${pkg.monthlyWordLimit.toLocaleString()} words per month`,
+            description: `${pkg.monthlyWordLimit.toLocaleString()} Ai words per month`,
           },
           features: pkg.featuresList,
         },
+        description: pkg.description,
         billing: {
           price: pkg.price,
           currency: pkg.currency,

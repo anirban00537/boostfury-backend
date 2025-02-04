@@ -34,7 +34,7 @@ export class AiContentController {
   }
 
   @Post('linkedin-profiles/ai-style/:linkedInProfileId')
-  @IsSubscribed()
+  // @IsSubscribed()
   async updateAiStyle(
     @UserInfo() user: User,
     @Param('linkedInProfileId') linkedInProfileId: string,
