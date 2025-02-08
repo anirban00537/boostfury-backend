@@ -270,9 +270,7 @@ export class AdminService {
         include: {
           _count: {
             select: {
-              subscriptions: {
-                where: { status: coreConstant.SUBSCRIPTION_STATUS.ACTIVE },
-              },
+              subscriptions: true,
             },
           },
         },
