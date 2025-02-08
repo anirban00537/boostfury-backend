@@ -329,8 +329,10 @@ Make it engaging and professional while maintaining brevity.
             ${instructions}
 
             Guidelines:
-            - Maintain the original meaning and key points
-            
+            - ***Maintain the original meaning and key points***
+            - ***Donot overwrite the original content***
+            - Please keep the structure and format of the original content intact
+            - ${instructions} ***is required ***
             Please provide only the rewritten content without any additional comments or explanations.`,
           },
           {
