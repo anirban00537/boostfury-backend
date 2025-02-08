@@ -596,50 +596,54 @@ export class ContentPostingService {
       return errorResponse(`Failed to schedule post: ${error.message}`);
     }
   }
-  async deletePost(userId: string, postId: string): Promise<ResponseModel> {
+  async deletePost(userId: string, postId: string): Promise<any> {
     try {
       const post = await this.prisma.linkedInPost.findFirst({
         where: {
           id: postId,
           userId,
         },
+        include: {
+          images: true, // Include images to delete them from S3
+        },
       });
-
+  
       if (!post) {
         return errorResponse('Post not found');
       }
-
-      // Delete all related records in a transaction
       await this.prisma.$transaction(async (prisma) => {
-        // Delete queued post if exists
         await prisma.queuedPost.deleteMany({
           where: {
             postId,
           },
         });
-
-        // Delete post logs
         await prisma.postLog.deleteMany({
           where: {
             linkedInPostId: postId,
           },
         });
 
-        // Delete post images if any
+        if (post.images && post.images.length > 0) {
+          for (const image of post.images) {
+            try {
+              await deleteFileFromS3(image.imageUrl); // Delete image from S3
+            } catch (s3Error) {
+              console.error(`Failed to delete image from S3: ${image.imageUrl}`, s3Error);
+            }
+          }
+        }
+  
         await prisma.linkedInPostImage.deleteMany({
           where: {
             postId,
           },
         });
-
-        // Finally delete the post
         await prisma.linkedInPost.delete({
           where: {
             id: postId,
           },
         });
       });
-
       return successResponse('Post deleted successfully');
     } catch (error) {
       console.error('Error deleting post:', error);
