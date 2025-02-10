@@ -459,7 +459,7 @@ export class ContentPostingService {
             data: {
               status: coreConstant.POST_STATUS.PUBLISHED,
               publishedAt: new Date(),
-              publishedId: linkedInResponse.postId,
+              publishedId: linkedInResponse.id,
             },
             include: {
               linkedInProfile: true,
@@ -487,7 +487,7 @@ export class ContentPostingService {
             data: {
               linkedInPostId: post.id,
               status: coreConstant.POST_LOG_STATUS.PUBLISHED,
-              message: `Post published successfully on LinkedIn. Post ID: ${linkedInResponse.postId}`,
+              message: `Post published successfully on LinkedIn. Post ID: ${linkedInResponse.id}`,
               timestamp: new Date(),
             },
           });

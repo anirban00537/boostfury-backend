@@ -8,15 +8,16 @@ import { isValidTimeZone } from 'src/shared/utils/timezone.util';
 import {
   LinkedInPostResponse,
   LinkedInPostError,
-  LinkedInPostMedia,
   LinkedInPostPayload,
+  LinkedInMediaAsset,
+  LinkedInMediaUploadResponse,
 } from './types/linkedin-post.types';
 
 @Injectable()
 export class LinkedInService {
   private readonly logger = new Logger(LinkedInService.name);
-  private readonly baseUrl = 'https://api.linkedin.com/v2';
-  private readonly apiVersion = '202404';
+  private readonly baseUrl = 'https://api.linkedin.com/rest';
+  private readonly apiVersion = '202401';
   private stateMap = new Map<string, string>();
 
   constructor(
@@ -553,9 +554,6 @@ export class LinkedInService {
     try {
       console.log('=== Starting LinkedIn Post Creation ===');
       console.log('Raw Post Data:', postData);
-      console.log('Image URLs type:', typeof postData.imageUrls);
-      console.log('Image URLs:', postData.imageUrls);
-      console.log('Image URLs length:', postData.imageUrls?.length);
 
       const profile = await this.prisma.linkedInProfile.findUnique({
         where: { profileId },
@@ -577,96 +575,58 @@ export class LinkedInService {
       }
 
       const author = `urn:li:person:${profile.creatorId}`;
-      let mediaAssets = [];
+      let mediaAssets: LinkedInMediaAsset[] = [];
 
-      // Enhanced image processing check
-      if (
-        postData.imageUrls &&
-        Array.isArray(postData.imageUrls) &&
-        postData.imageUrls.length > 0
-      ) {
+      // Process images if present
+      if (postData.imageUrls?.length > 0) {
         console.log('Processing images...');
-        console.log('Number of images to process:', postData.imageUrls.length);
-
-        try {
-          for (const [index, url] of postData.imageUrls.entries()) {
-            console.log(`Processing image ${index + 1}:`, url);
-
-            // Register upload
-            console.log('Registering image with LinkedIn...');
-            const registerResponse = await this.registerImageUpload(
-              profile.accessToken,
-              author,
-            );
-            console.log('Registration response:', registerResponse);
-
-            // Upload image
-            console.log('Uploading image to LinkedIn...');
-            await this.uploadImageToLinkedIn(
-              registerResponse.uploadUrl,
-              url,
-              profile.accessToken,
-            );
-            console.log('Image upload completed');
-
-            const mediaAsset: LinkedInPostMedia = {
-              status: 'READY' as const,
-              description: { text: '' },
-              media: registerResponse.asset,
-              title: { text: '' },
-            };
-            mediaAssets.push(mediaAsset);
-            console.log('Media asset added:', mediaAsset);
-          }
-        } catch (error) {
-          console.error('Error in image processing:', error);
-          console.error('Error details:', {
-            message: error.message,
-            response: error.response?.data,
-            status: error.response?.status,
-          });
-          throw new Error(`Image processing failed: ${error.message}`);
-        }
-      } else {
-        console.log('No images to process or invalid image data:', {
-          imageUrls: postData.imageUrls,
-          isArray: Array.isArray(postData.imageUrls),
-          length: postData.imageUrls?.length,
-        });
+        mediaAssets = await this.processImages(postData.imageUrls, profile.accessToken, author);
       }
 
-      // Prepare the post payload
+      // Process video if present
+      if (postData.videoUrl) {
+        console.log('Processing video...');
+        const videoAsset = await this.processVideo(postData.videoUrl, profile.accessToken, author);
+        mediaAssets.push(videoAsset);
+      }
+
+      // Process document if present
+      if (postData.documentUrl) {
+        console.log('Processing document...');
+        const documentAsset = await this.processDocument(postData.documentUrl, profile.accessToken, author);
+        mediaAssets.push(documentAsset);
+      }
+
+      // Prepare the post payload using new Posts API format
       const postPayload: LinkedInPostPayload = {
         author,
+        commentary: postData.content,
+        visibility: 'PUBLIC',
+        distribution: {
+          feedDistribution: 'MAIN_FEED',
+        },
         lifecycleState: 'PUBLISHED',
-        specificContent: {
-          'com.linkedin.ugc.ShareContent': {
-            shareCommentary: {
-              text: postData.content,
-            },
-            shareMediaCategory: mediaAssets.length ? 'IMAGE' : 'NONE',
-            ...(mediaAssets.length && { media: mediaAssets }),
-          },
-        },
-        visibility: {
-          'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
-        },
+        isReshareDisabledByAuthor: false,
       };
 
-      console.log(
-        'Prepared post payload:',
-        JSON.stringify(postPayload, null, 2),
-      );
+      // Add media content if present
+      if (mediaAssets.length > 0) {
+        postPayload.content = {
+          text: '',
+          media: mediaAssets,
+        };
+      }
 
-      // Make the API call to LinkedIn
+      console.log('Prepared post payload:', JSON.stringify(postPayload, null, 2));
+
+      // Make the API call to LinkedIn using the new Posts API endpoint
       console.log('Making API call to LinkedIn...');
       const response = await axios.post<LinkedInPostResponse>(
-        `${this.baseUrl}/ugcPosts`,
+        `${this.baseUrl}/posts`,
         postPayload,
         {
           headers: {
             Authorization: `Bearer ${profile.accessToken}`,
-            'X-Restli-Protocol-Version': '2.0.0',
             'LinkedIn-Version': this.apiVersion,
             'Content-Type': 'application/json',
           },
@@ -676,9 +636,12 @@ export class LinkedInService {
       console.log('LinkedIn API Response:', response.data);
 
       return {
-        postId: response.data.postId,
+        id: response.data.id,
         author: response.data.author,
-        created: response.data.created,
+        createdAt: response.data.createdAt,
+        lastModifiedAt: response.data.lastModifiedAt,
+        lifecycleState: response.data.lifecycleState,
+        visibility: response.data.visibility,
       };
     } catch (error) {
       console.error('=== LinkedIn Post Creation Error ===');
@@ -698,65 +661,68 @@ export class LinkedInService {
     imageUrls: string[],
     accessToken: string,
     owner: string,
-  ): Promise<LinkedInPostMedia[]> {
+  ): Promise<LinkedInMediaAsset[]> {
     console.log('=== Starting Image Processing ===');
-    const mediaAssets: LinkedInPostMedia[] = [];
+    const mediaAssets: LinkedInMediaAsset[] = [];
 
     for (const [index, imageUrl] of imageUrls.entries()) {
-      console.log(
-        `Processing image ${index + 1}/${imageUrls.length}:`,
-        imageUrl,
-      );
+      console.log(`Processing image ${index + 1}/${imageUrls.length}:`, imageUrl);
 
       try {
-        // Step 1: Register upload
-        console.log('Registering image upload with LinkedIn...');
-        const registerResponse = await this.registerImageUpload(
+        // Register upload using new media asset API
+        const registerResponse = await this.registerMediaUpload(
           accessToken,
           owner,
+          'IMAGE',
         );
-        console.log('Register response:', registerResponse);
 
-        // Step 2: Upload image
-        console.log('Uploading image to LinkedIn...');
-        await this.uploadImageToLinkedIn(
-          registerResponse.uploadUrl,
+        // Upload image
+        await this.uploadMediaToLinkedIn(
+          registerResponse.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl,
           imageUrl,
           accessToken,
         );
-        console.log('Image upload completed');
 
-        // Add to media assets with correct type
-        const mediaAsset: LinkedInPostMedia = {
-          status: 'READY' as const, // Using const assertion
-          description: { text: '' },
-          media: registerResponse.asset,
-          title: { text: '' },
+        // Create media asset
+        const mediaAsset: LinkedInMediaAsset = {
+          id: registerResponse.value.asset,
+          type: 'IMAGE',
+          altText: `Image ${index + 1}`,
         };
-        console.log('Created media asset:', mediaAsset);
+
         mediaAssets.push(mediaAsset);
+        console.log('Media asset added:', mediaAsset);
       } catch (error) {
         console.error(`Error processing image ${index + 1}:`, error);
         throw error;
       }
     }
 
-    console.log('=== Image Processing Completed ===');
-    console.log('Total media assets:', mediaAssets.length);
     return mediaAssets;
   }
 
-  private async registerImageUpload(accessToken: string, owner: string) {
-    console.log('=== Starting Image Registration ===');
+  private async registerMediaUpload(
+    accessToken: string,
+    owner: string,
+    type: 'IMAGE' | 'VIDEO' | 'DOCUMENT',
+  ): Promise<LinkedInMediaUploadResponse> {
+    console.log('=== Starting Media Registration ===');
     console.log('Owner:', owner);
+    console.log('Type:', type);
+
+    const recipes = {
+      IMAGE: ['urn:li:digitalmediaRecipe:feedshare-image'],
+      VIDEO: ['urn:li:digitalmediaRecipe:feedshare-video'],
+      DOCUMENT: ['urn:li:digitalmediaRecipe:feedshare-document'],
+    };
 
     try {
-      const response = await axios.post(
+      const response = await axios.post<LinkedInMediaUploadResponse>(
         `${this.baseUrl}/assets?action=registerUpload`,
         {
           registerUploadRequest: {
-            recipes: ['urn:li:digitalmediaRecipe:feedshare-image'],
-            owner: owner,
+            recipes: recipes[type],
+            owner,
             serviceRelationships: [
               {
                 relationshipType: 'OWNER',
@@ -768,43 +734,36 @@ export class LinkedInService {
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            'X-Restli-Protocol-Version': '2.0.0',
             'LinkedIn-Version': this.apiVersion,
           },
         },
       );
 
       console.log('Registration response:', response.data);
-      return {
-        uploadUrl:
-          response.data.value.uploadMechanism[
-            'com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'
-          ].uploadUrl,
-        asset: response.data.value.asset,
-      };
+      return response.data;
     } catch (error) {
       console.error('Registration error:', error.response?.data || error);
       throw error;
     }
   }
 
-  private async uploadImageToLinkedIn(
+  private async uploadMediaToLinkedIn(
     uploadUrl: string,
-    imageUrl: string,
+    mediaUrl: string,
     accessToken: string,
-  ) {
-    console.log('=== Starting Image Upload ===');
+  ): Promise<void> {
+    console.log('=== Starting Media Upload ===');
     console.log('Upload URL:', uploadUrl);
-    console.log('Image URL:', imageUrl);
+    console.log('Media URL:', mediaUrl);
 
     try {
-      // Download image from URL
-      console.log('Downloading image...');
-      const imageResponse = await axios.get(imageUrl, {
+      // Download media from URL
+      console.log('Downloading media...');
+      const mediaResponse = await axios.get(mediaUrl, {
         responseType: 'arraybuffer',
       });
-      const buffer = Buffer.from(imageResponse.data);
-      console.log('Image downloaded, size:', buffer.length, 'bytes');
+      const buffer = Buffer.from(mediaResponse.data);
+      console.log('Media downloaded, size:', buffer.length, 'bytes');
 
       // Upload to LinkedIn
       console.log('Uploading to LinkedIn...');
@@ -818,6 +777,66 @@ export class LinkedInService {
       console.log('Upload response status:', uploadResponse.status);
     } catch (error) {
       console.error('Upload error:', error.response?.data || error);
+      throw error;
+    }
+  }
+
+  private async processVideo(
+    videoUrl: string,
+    accessToken: string,
+    owner: string,
+  ): Promise<LinkedInMediaAsset> {
+    console.log('=== Starting Video Processing ===');
+    
+    try {
+      const registerResponse = await this.registerMediaUpload(
+        accessToken,
+        owner,
+        'VIDEO',
+      );
+
+      await this.uploadMediaToLinkedIn(
+        registerResponse.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl,
+        videoUrl,
+        accessToken,
+      );
+
+      return {
+        id: registerResponse.value.asset,
+        type: 'VIDEO',
+      };
+    } catch (error) {
+      console.error('Error processing video:', error);
+      throw error;
+    }
+  }
+
+  private async processDocument(
+    documentUrl: string,
+    accessToken: string,
+    owner: string,
+  ): Promise<LinkedInMediaAsset> {
+    console.log('=== Starting Document Processing ===');
+    
+    try {
+      const registerResponse = await this.registerMediaUpload(
+        accessToken,
+        owner,
+        'DOCUMENT',
+      );
+
+      await this.uploadMediaToLinkedIn(
+        registerResponse.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl,
+        documentUrl,
+        accessToken,
+      );
+
+      return {
+        id: registerResponse.value.asset,
+        type: 'DOCUMENT',
+      };
+    } catch (error) {
+      console.error('Error processing document:', error);
       throw error;
     }
   }
